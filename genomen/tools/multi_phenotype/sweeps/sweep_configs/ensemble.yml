@@ -1,0 +1,219 @@
+program: genomen/tools/eval/sweeps/sweep_train.py
+name: genomen_ensemble_sweep
+method: random
+metric:
+  name: test_pred_metric
+  goal: maximize
+
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - "--task_id=${envvar:TASK_ID}" 
+  - "--model_type=${envvar:MODEL_TYPE}" 
+
+parameters:
+  variant_sampling_strategy:
+    values: ["random"]
+
+  sample_sampling_strategy:
+    values: ["balanced"]
+
+  max_samples:
+    values: [null]
+
+  max_features:
+    values: [15_000, 50_000, 80_000]
+
+  k_fs:
+    values: [10_000, 15_000]
+
+  # model params
+  covar_model_name:
+    value: "linear"
+
+  geno_model_name:
+    value: "ensemble"
+
+  n_per_block:
+    values: [0, 1, 2, 3]
+
+  blocks_max_kb:
+    values: [200, 300, 400, 500]
+  
+  blocks_strong_lowci:
+    values: [0.5, 0.6, 0.7, 0.8]
+
+  # Enable GPU backend
+  backend:
+    value: "cpu"
+
+  ensemble_estimator_names:
+    values: [
+      ["linear_l1", "lightgbm"],
+      ["linear_l1", "xgboost"],
+      ["linear_l1", "catboost"],
+      ["linear_l1", "lightgbm", "xgboost"],
+      ["linear_l1", "linear_l2", "lightgbm"],
+      ["linear_l1", "linear_l2", "lightgbm", "xgboost"],
+      ["linear_l1", "linear_l2", "lightgbm", "catboost"],
+      ["linear_l1", "linear_l2", "lightgbm", "xgboost", "catboost"]
+      #["linear_l1", "linear_l2", "lightgbm", "xgboost", "simple_mlp"],
+    ]
+
+  geno_model_hyperparameters:
+    parameters:
+      lightgbm:
+        parameters:
+          n_estimators:
+            distribution: int_uniform
+            min: 1000
+            max: 2000
+          num_leaves:
+            distribution: int_uniform
+            min: 200
+            max: 500
+          learning_rate:
+            distribution: log_uniform_values
+            min: 0.01
+            max: 0.02
+          min_data_in_leaf:
+            distribution: int_uniform
+            min: 120
+            max: 300
+          max_depth:
+            distribution: int_uniform
+            min: 12
+            max: 20
+          bagging_fraction:
+            distribution: uniform
+            min: 0.55
+            max: 0.9
+          feature_fraction:
+            distribution: uniform
+            min: 0.6
+            max: 0.9
+          bagging_freq:
+            value: 1
+          lambda_l2:
+            distribution: log_uniform_values
+            min: 0.001
+            max: 10.0
+          min_child_samples:
+            distribution: int_uniform
+            min: 10
+            max: 20
+          min_child_weight:
+            distribution: uniform
+            min: 3.0
+            max: 7.0
+          min_gain_to_split:
+            distribution: uniform
+            min: 1.0
+            max: 3.0
+          boosting_type:
+            values: ["gbdt"]
+      xgboost:
+        parameters:
+          n_estimators:
+            distribution: int_uniform
+            min: 1000
+            max: 2000
+          max_depth:
+            distribution: int_uniform
+            min: 6
+            max: 12
+          learning_rate:
+            distribution: log_uniform_values
+            min: 0.01
+            max: 0.3
+          subsample:
+            distribution: uniform
+            min: 0.6
+            max: 0.95
+          colsample_bytree:
+            distribution: uniform
+            min: 0.6
+            max: 0.95
+          reg_alpha:
+            distribution: log_uniform_values
+            min: 0.001
+            max: 10.0
+          reg_lambda:
+            distribution: log_uniform_values
+            min: 0.001
+            max: 10.0
+          tree_method:
+            value: "hist"
+            value: "hist"
+          booster:
+            values: ["gbtree"]
+      catboost:
+        parameters:
+          iterations:
+            distribution: int_uniform
+            min: 1200
+            max: 2000
+          depth:
+            distribution: int_uniform
+            min: 6
+            max: 12
+          learning_rate:
+            distribution: log_uniform_values
+            min: 0.1
+            max: 0.2
+          l2_leaf_reg:
+            distribution: log_uniform_values
+            min: 1.0
+            max: 10.0
+          random_strength:
+            distribution: uniform
+            min: 1.0
+            max: 10.0
+          bootstrap_type:
+            values: ["Bayesian", "Bernoulli"]
+      linear_l1:
+        parameters:
+          alpha:
+            values: [0.01]
+      linear_l2:
+        parameters:
+          alpha:
+            values: [0.01]
+
+  include_ss:
+    values: [true, false]
+    values: [true, false]
+
+  feature_selection_method:
+    values: ["k_best"]
+
+  aggregation_model_name:
+    values: ["linear_l2", "linear"]
+
+  aggregation_model_hyperparameters:
+    parameters:
+      linear_l2:
+        parameters:
+          alpha:
+            values: [0.01, 0.001]
+
+  agg_mode:
+    values: ["stacking", "mean"]
+
+  filter_strat:
+    values: ["positive", "geq-average", "top-p-percentile"]
+
+  p:
+    values: [0.7]
+
+  k_balance:
+    values: [2, 3, 5]
+    values: [2, 3, 5]
+
+  eps:
+    values: [0.0, 0.2, 0.5, 0.7, 1.0]
+
+  eps_schedule:
+    values: ["constant", "step"]

@@ -1,0 +1,126 @@
+---
+DataSetConfig:
+  phenotype_id: null
+  classification: null
+  file_format: "plink"
+  populations: ["white_british"]
+  include_x_chromosome: true
+  maf_threshold: 0.05
+  covar_config:
+    include_covars: true
+    covar_keys: ["age", "sex", "Global_PC1", "Global_PC2", "Global_PC3", "Global_PC4", "Global_PC5", "Global_PC6", "Global_PC7", "Global_PC8", "Global_PC9", "Global_PC10"]
+  sample_sampling:
+    strat: "balanced"
+    max_samples: 120_000
+    k: 2
+    balance_pops: false
+  variant_sampling:
+    strat: "random"
+    max_features: 80_000
+    ld_config:
+      prune_kb: 250
+      prune_step: 50
+      prune_r2: 0.1
+      tau: 0.1
+      ld_window_kb: 1_000
+      ld_window: 50_000
+      eps: 0.0
+      eps_schedule: "constant"
+      eps_step_size: 0.0
+    gwas_config:
+      path: ""
+      snps_column: "SNPS"
+      pvalue_column: "P-VALUE"
+    window_overlap_ratio: 0.0
+---
+GenomenModelConfig:
+  covar_config:
+    covar_strat: "residualization"
+    model_config:
+      model_name: linear
+      hyperparameters: {}
+      balance_classes: false
+  geno_config:
+    n_estimators: 32
+    compute_interactions: true
+    preprocessing_config:
+      z_score_thresh: 0.0
+      standard_labels: false
+      feature_selection:
+        method: "k_best"  # Options: "none", "k_best", "percentile", "variance_threshold", "mutual_info", "rfe"
+        k: 15_000
+        percentile: 0.75
+        variance_threshold: 0.05
+        score_func: null
+    model_config:
+      model_name: linear_l1
+      ensemble_estimator_names: ["linear_l1", "lightgbm"]
+      hyperparameters: 
+        alpha: 0.01
+        #linear_l1:
+        #  alpha: 0.01
+        #lightgbm:
+        #  bagging_fraction: 0.6232546393535136
+        #  bagging_freq: 1
+        #  feature_fraction: 0.7568699255535379
+        #  lambda_l1: 0.00000002209894817893
+        #  lambda_l2: 0.0437661075116744
+        #  learning_rate: 0.020426221815062907
+        #  max_bin: 289
+        #  max_depth: 14
+        #  min_child_weight: 5.174997310706651
+        #  n_estimators: 1700
+        #  num_leaves: 182
+      balance_classes: true
+    aggregator_config:
+      filter_strat: "none"
+      agg_strat: "stacking"
+      use_summary_stats: false
+      model_config: 
+        model_name: linear_l2
+        hyperparameters: 
+          alpha: 0.01
+        balance_classes: true
+      p: 0.7
+      temp: 0.05
+---
+TrainConfig:
+  batch_size: 3
+  n_jobs: 28
+  backend: "cpu"
+  ram_mb: 100_000
+  scorer: null
+  patience: 10
+  seed: 42
+  log_with_wandb: true
+  save_annotation: true
+  save_model: false
+  compute_shap: true
+---
+BenchmarkConfig:
+  phenotypes:
+    - ad_alzheimer
+    - asthma
+    - gout
+    - hypertension
+    - type_1_diabetes
+    - type_2_diabetes
+    - iritis
+    - prostate_cancer
+    - lung_cancer
+    - thyroid_cancer
+    - ovarian_cancer
+    - hypertrophic_cardiomyopathy
+    - body_water_mass
+    - ldl_cholesterol
+    - mean_corpuscular_volume
+    - metabolic_rate
+    - platelet_count
+    - platelet_width
+    - standing_height
+    - triglycerides
+    - male_pattern_baldness
+    - cystic_kidney_disease
+    - unspecified_contracted_kidney
+    - kidney_failure
+    - kidney_cell_cancer

@@ -1,0 +1,96 @@
+---
+DataSetConfig:
+  phenotype_id: null
+  classification: null
+  file_format: "plink"
+  populations: ["white_british"]
+  include_x_chromosome: false
+  maf_threshold: 0.05
+  covar_config:
+    include_covars: true
+    covar_keys: ["age", "sex", "Global_PC1", "Global_PC2", "Global_PC3", "Global_PC4", "Global_PC5", "Global_PC6", "Global_PC7", "Global_PC8", "Global_PC9", "Global_PC10"]
+  sample_sampling:
+    strat: "random"
+    max_samples: 120_000
+    k: 2
+    balance_pops: false
+  variant_sampling:
+    strat: "random"
+    max_features: 60_000
+    ld_config:
+      prune_kb: 250
+      prune_step: 50
+      prune_r2: 0.1
+      tau: 0.1
+      ld_window_kb: 1_000
+      ld_window: 50_000
+      eps: 0.0
+      eps_schedule: "constant"
+      eps_step_size: 0.0
+    gwas_config:
+      path: "/private/groups/ioannidislab/dbonet/MetaPRS/gwas/ukb_step2_QT_allChrs_wCovars_INI23102.regenie" #"/private/groups/ioannidislab/cthoma13/data/genomen/gwas/GCST90468184.tsv"
+      snps_column: "ID"
+      pvalue_column: "p_value"
+      sep: '\s+'
+      nlogpvalue_column: "LOG10P"
+      impute_val: 0.1
+    window_overlap_ratio: 0.0
+---
+GenomenModelConfig:
+  covar_config:
+    covar_strat: null
+    model_config:
+      model_name: linear
+      hyperparameters: {}
+      balance_classes: false
+  geno_config:
+    n_estimators: 32
+    compute_interactions: true
+    preprocessing_config:
+      z_score_thresh: 0.0
+      standard_labels: false
+      feature_selection:
+        method: "k_best"  # Options: "none", "k_best", "percentile", "variance_threshold", "mutual_info", "rfe"
+        k: 15_000
+        percentile: 0.75
+        variance_threshold: 0.05
+        score_func: null
+    model_config:
+      model_name: ensemble
+      ensemble_estimator_names: ["linear_l1", "lightgbm"]
+      hyperparameters: 
+        linear_l1:
+          alpha: 0.01
+        xgboost:
+          booster: "gbtree"
+          colsample_bytree: 0.8189967096696574
+          learning_rate: 0.03306374259152945
+          max_depth: 9
+          n_estimators: 1526
+          reg_alpha: 0.01601417954560203
+          reg_lambda: 0.06698500905872586
+          subsample: 0.9481109504887136
+          tree_method: "hist"
+      balance_classes: true     
+    aggregator_config:
+      filter_strat: "geq-average"
+      agg_strat: "mean"
+      model_config: 
+        model_name: linear_l2
+        hyperparameters: 
+          alpha: 0.01
+        balance_classes: true
+      p: 0.7
+      temp: 0.05
+---
+TrainConfig:
+  batch_size: 2
+  n_jobs: 28
+  backend: "cpu"
+  ram_mb: 100_000
+  scorer: null
+  patience: 10
+  seed: 42
+  log_with_wandb: true
+  save_annotation: false
+  save_model: false
