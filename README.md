@@ -1,12 +1,16 @@
-# genomen
+<div align="center">
 
-**Polygenic Risk and Association beyond Linearity**
+# GenomEn
+
+<h2 style="border-bottom: none; padding-bottom: 0; margin-bottom: 0;">Polygenic Risk and Association beyond Linearity</h2>
 
 [![PyPI version](https://img.shields.io/pypi/v/genomen.svg)](https://pypi.org/project/genomen/)
 [![PyPI downloads](https://img.shields.io/pypi/dm/genomen.svg)](https://pypi.org/project/genomen/)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
 [![Format Check](https://github.com/AI-sandbox/genomen/actions/workflows/format-check.yml/badge.svg)](https://github.com/AI-sandbox/genomen/actions/workflows/format-check.yml)
+
+</div>
 
 ## Overview
 
