@@ -9,10 +9,10 @@ from typing import Literal
 import fire
 import numpy as np
 import pandas as pd
+import wandb
 import yaml
 
 import genomen.utils as utils
-import wandb
 from genomen.data import DataSet, split
 from genomen.model import GenomenModel
 from genomen.tools.multi_phenotype.phenotype_config import PHENOTYPES

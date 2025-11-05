@@ -5,11 +5,10 @@ from dataclasses import dataclass
 import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
+import wandb
 from jaxtyping import Int32
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
-import wandb
 
 from .... import utils
 

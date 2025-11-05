@@ -94,3 +94,4 @@ extend-exclude = '''
 profile = "black"
 line_length = 100
 skip = ["genomen_artifacts", "build", "dist", ".eggs", ".git", ".hg", ".mypy_cache", ".tox", ".venv"]
+known_third_party = ["wandb"]
