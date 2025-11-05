@@ -199,3 +199,7 @@ cython_debug/
 # Artifacts
 /genomen_artifacts/*
 !/genomen_artifacts/.gitignore
+output/
+
+# Other
+wandb/
