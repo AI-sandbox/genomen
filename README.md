@@ -2,7 +2,7 @@
 
 # GenomEn
 
-<h2 style="border-bottom: none; padding-bottom: 0; margin-bottom: 0;">Polygenic Risk and Association beyond Linearity</h2>
+**Polygenic Risk and Association beyond Linearity**
 
 [![PyPI version](https://img.shields.io/pypi/v/genomen.svg)](https://pypi.org/project/genomen/)
 [![PyPI downloads](https://img.shields.io/pypi/dm/genomen.svg)](https://pypi.org/project/genomen/)
