@@ -152,18 +152,12 @@ class GenomenModel:
 
         # fuse covar and geno (preferably on val)
         if self.cfg.include_covars:
-            covar_fuse_preds = (
-                val_covar_preds if val_data is not None else train_covar_preds
-            )
+            covar_fuse_preds = val_covar_preds if val_data is not None else train_covar_preds
             if self.cfg.covar_config.covar_strat == "predictive":
-                geno_fuse_preds = (
-                    val_geno_preds if val_data is not None else train_geno_preds
-                )
+                geno_fuse_preds = val_geno_preds if val_data is not None else train_geno_preds
             else:
                 geno_fuse_preds = (
-                    val_geno_resid_preds
-                    if val_data is not None
-                    else train_geno_resid_preds
+                    val_geno_resid_preds if val_data is not None else train_geno_resid_preds
                 )
 
             if self.cfg.classification:
@@ -180,11 +174,7 @@ class GenomenModel:
                 [covar_fuse_preds.reshape(-1, 1), geno_fuse_preds.reshape(-1, 1)]
             )
             X_fuse = sm.add_constant(X_fuse, has_constant="add")
-            y = (
-                val_data.get_labels()
-                if val_data is not None
-                else train_data.get_labels()
-            )
+            y = val_data.get_labels() if val_data is not None else train_data.get_labels()
 
             if self.cfg.classification:
                 family = sm.families.Binomial()
@@ -224,9 +214,7 @@ class GenomenModel:
         geno_resid_preds: npt.NDArray | None = None,
     ) -> npt.NDArray:
         geno_preds = (
-            geno_preds
-            if self.cfg.covar_config.covar_strat == "predictive"
-            else geno_resid_preds
+            geno_preds if self.cfg.covar_config.covar_strat == "predictive" else geno_resid_preds
         )
 
         if self.cfg.classification:
@@ -238,18 +226,14 @@ class GenomenModel:
                     self.covar_model.residual_transformer, geno_preds
                 )
 
-        X_fuse = np.column_stack(
-            [covar_preds.reshape(-1, 1), geno_preds.reshape(-1, 1)]
-        )
+        X_fuse = np.column_stack([covar_preds.reshape(-1, 1), geno_preds.reshape(-1, 1)])
         X_fuse = sm.add_constant(X_fuse, has_constant="add")
 
         fused_preds = self.fusion_model.predict(X_fuse)
 
         return fused_preds
 
-    def predict(
-        self, data: DataSet
-    ) -> Tuple[npt.NDArray, npt.NDArray | None, npt.NDArray | None]:
+    def predict(self, data: DataSet) -> Tuple[npt.NDArray, npt.NDArray | None, npt.NDArray | None]:
         if self.cfg.include_covars:
             # fit covars
             data, covar_preds = self.covar_model.predict(

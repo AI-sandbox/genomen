@@ -62,9 +62,7 @@ def split(
                 )
             )
             master_df["fam_idx"] = master_df["IID"].map(iid_to_idx)
-            master_df = master_df.dropna(
-                subset=["fam_idx"]
-            )  # Remove any IIDs not in data_set
+            master_df = master_df.dropna(subset=["fam_idx"])  # Remove any IIDs not in data_set
             master_df["fam_idx"] = master_df["fam_idx"].astype(np.uint32)
 
         except Exception as e:
@@ -73,9 +71,7 @@ def split(
         # Check that all required labels exist in the data
         missing_labels = set(labels) - set(master_df[column_name].unique())
         if missing_labels:
-            raise ValueError(
-                f"Missing required labels in split column: {missing_labels}"
-            )
+            raise ValueError(f"Missing required labels in split column: {missing_labels}")
 
         data_sets = []
 
@@ -119,9 +115,7 @@ def split(
 
             for population in data_set.cfg.populations:
                 pop_mask = data_set.phenotype.annotation_df["population"] == population
-                pop_sample_idxs = data_set.phenotype.annotation_df.iloc[
-                    pop_mask
-                ].index.values
+                pop_sample_idxs = data_set.phenotype.annotation_df.iloc[pop_mask].index.values
 
                 # Split indices for this population
                 pop_idxs = np.arange(len(pop_sample_idxs))
@@ -147,9 +141,7 @@ def split(
             test_sample_idxs = all_sample_idxs[sample_idxs[split_idx:]]
 
         # Create train set
-        train_pheno_annotation_df = data_set.phenotype.annotation_df.loc[
-            train_sample_idxs
-        ].copy()
+        train_pheno_annotation_df = data_set.phenotype.annotation_df.loc[train_sample_idxs].copy()
 
         train_phenotype = PhenoSet(
             annotation_df=train_pheno_annotation_df,
@@ -162,14 +154,10 @@ def split(
             n_samples=len(train_pheno_annotation_df),
         )
 
-        train_set = DataSet(
-            cfg=data_set.cfg, genotype=train_genotype, phenotype=train_phenotype
-        )
+        train_set = DataSet(cfg=data_set.cfg, genotype=train_genotype, phenotype=train_phenotype)
 
         # Create test set
-        test_pheno_annotation_df = data_set.phenotype.annotation_df.loc[
-            test_sample_idxs
-        ].copy()
+        test_pheno_annotation_df = data_set.phenotype.annotation_df.loc[test_sample_idxs].copy()
 
         test_phenotype = PhenoSet(
             annotation_df=test_pheno_annotation_df, covar_cfg=data_set.cfg.covar_config
@@ -183,8 +171,6 @@ def split(
 
         test_cfg = copy.deepcopy(data_set.cfg)
         test_cfg.is_train = False
-        test_set = DataSet(
-            cfg=test_cfg, genotype=test_genotype, phenotype=test_phenotype
-        )
+        test_set = DataSet(cfg=test_cfg, genotype=test_genotype, phenotype=test_phenotype)
 
         return train_set, test_set

@@ -58,7 +58,7 @@ def adaptive_sampling(
     k: int | None = None,
     strategy: Literal["stratified", "balanced"] = "stratified",
     rng: np.random.Generator = None,
-    n_bins: int = 10
+    n_bins: int = 10,
 ) -> npt.NDArray[np.uint32]:
     """Perform adaptive sampling based on binary phenotypes.
 
@@ -90,9 +90,7 @@ def adaptive_sampling(
             n_control = size - n_case
 
             # Sample with replacement if not enough samples available
-            case_samples = rng.choice(
-                case_idxs, size=n_case, replace=n_case > len(case_idxs)
-            )
+            case_samples = rng.choice(case_idxs, size=n_case, replace=n_case > len(case_idxs))
             control_samples = rng.choice(
                 control_idxs, size=n_control, replace=n_control > len(control_idxs)
             )
@@ -103,23 +101,23 @@ def adaptive_sampling(
             # k:1 balanced sampling (k controls per case)
             if size is not None:
                 n_case = min(len(case_idxs), size // 2)
-            else: 
+            else:
                 n_case = len(case_idxs)
             n_control_desired = min(len(control_idxs), k * n_case)
 
             # Use all cases and sample controls
             if n_control_desired > 0 and len(control_idxs) > 0:
-                control_samples = rng.choice(
-                    control_idxs, size=n_control_desired, replace=False
-                )
+                control_samples = rng.choice(control_idxs, size=n_control_desired, replace=False)
                 return np.concatenate([case_idxs, control_samples])
             else:
                 return case_idxs
         else:
             raise ValueError(f"Unknown sampling strategy {strategy} for classification phenotype")
-    else: # continuous phenotype
-        if np.allclose(phenotypes, phenotypes[0]): # if constant, fallback to random sampling
-            return rng.choice(sample_idxs, size=size, replace=len(sample_idxs) < size).astype(np.uint32)
+    else:  # continuous phenotype
+        if np.allclose(phenotypes, phenotypes[0]):  # if constant, fallback to random sampling
+            return rng.choice(sample_idxs, size=size, replace=len(sample_idxs) < size).astype(
+                np.uint32
+            )
 
         n_bins = max(2, min(n_bins, len(sample_idxs)))
         kbd = KBinsDiscretizer(n_bins=n_bins, encode="ordinal", strategy="quantile")
@@ -153,25 +151,23 @@ def get_gwas_priors(snps: np.ndarray[str], cfg: "GWASConfig") -> npt.NDArray[np.
             f"variant_sampling=GWAS requires setting the path to a valid GWAS study. Error: {e}"
         )
 
-    assert (cfg.pvalue_column is not None) or (cfg.nlogpvalue_column is not None), "'pvalue_column' or 'nlogpvalue_column' has to specified in GWASConfig"
+    assert (cfg.pvalue_column is not None) or (
+        cfg.nlogpvalue_column is not None
+    ), "'pvalue_column' or 'nlogpvalue_column' has to specified in GWASConfig"
 
     value_column = cfg.nlogpvalue_column if cfg.nlogpvalue_column is not None else cfg.pvalue_column
     cols_type = {cfg.snps_column: str, value_column: float}
     cols = list(cols_type.keys())
 
     if any(col not in df_gwas.columns for col in cols):
-        raise ValueError(
-            "Invalid GWAS study, specify the correct SNP and P-Value columns"
-        )
+        raise ValueError("Invalid GWAS study, specify the correct SNP and P-Value columns")
 
     df_gwas = df_gwas[cols].dropna()
     for col, type_ in cols_type.items():
         df_gwas[col] = df_gwas[col].astype(type_)
 
     if cfg.pvalue_aggregation in ["mean", "min"]:
-        df_gwas = df_gwas.groupby(cfg.snps_column).aggregate(
-            {value_column: cfg.pvalue_aggregation}
-        )
+        df_gwas = df_gwas.groupby(cfg.snps_column).aggregate({value_column: cfg.pvalue_aggregation})
     else:
         df_gwas = df_gwas.groupby(cfg.snps_column)[value_column].apply(
             lambda x: scipy.stats.combine_pvalues(x, method=cfg.pvalue_aggregation)[1]
@@ -179,9 +175,7 @@ def get_gwas_priors(snps: np.ndarray[str], cfg: "GWASConfig") -> npt.NDArray[np.
 
     df = pd.DataFrame({cfg.snps_column: snps})
     print(f"Got {len(df_gwas)} values from GWAS")
-    df = pd.merge(
-        df, df_gwas, left_on=cfg.snps_column, right_on=cfg.snps_column, how="left"
-    )
+    df = pd.merge(df, df_gwas, left_on=cfg.snps_column, right_on=cfg.snps_column, how="left")
     if cfg.nlogpvalue_column is not None:
         n_overlap = df[value_column].notna().sum()
         logger.info(f"Found p-values for {n_overlap} variants in GWAS")
@@ -192,7 +186,9 @@ def get_gwas_priors(snps: np.ndarray[str], cfg: "GWASConfig") -> npt.NDArray[np.
         df = df.fillna(np.exp(-1))
         df["weight"] = -np.log(df[value_column]).fillna(cfg.impute_val)
 
-    return np.nan_to_num(df["weight"].values, nan=cfg.impute_val, posinf=33333333, neginf=cfg.impute_val)
+    return np.nan_to_num(
+        df["weight"].values, nan=cfg.impute_val, posinf=33333333, neginf=cfg.impute_val
+    )
 
 
 def hash_ndarray(arr: np.ndarray, *, algo="blake2s", chunk_bytes=1 << 20) -> str:

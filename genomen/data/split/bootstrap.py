@@ -17,11 +17,12 @@ def bootstrap(
     data_set: DataSet,
     seed: int | None = None,
 ) -> Tuple[DataSet, ...]:
-    """
-    """
+    """ """
     # Split all samples directly
     all_sample_idxs = data_set.phenotype.sample_idxs
-    bootstrap_sample_idxs = np.random.choice(all_sample_idxs, size=len(all_sample_idxs), replace=True)
+    bootstrap_sample_idxs = np.random.choice(
+        all_sample_idxs, size=len(all_sample_idxs), replace=True
+    )
 
     # Create train set
     bootstrapped_pheno_annotation_df = data_set.phenotype.annotation_df.loc[
@@ -39,8 +40,6 @@ def bootstrap(
         n_samples=len(bootstrapped_pheno_annotation_df),
     )
 
-    bootstrapped_set = DataSet(
-        cfg=data_set.cfg, genotype=train_genotype, phenotype=train_phenotype
-    )
+    bootstrapped_set = DataSet(cfg=data_set.cfg, genotype=train_genotype, phenotype=train_phenotype)
 
     return bootstrapped_set

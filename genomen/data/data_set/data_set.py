@@ -75,9 +75,7 @@ class DataSet:
 
         # create a unique hash based on input parameters
         covar_str = "_".join(
-            self.cfg.covar_config.covar_keys
-            if self.cfg.covar_config.include_covars
-            else []
+            self.cfg.covar_config.covar_keys if self.cfg.covar_config.include_covars else []
         )
         uid_parts = [
             str(self.cfg.paths["fam_path"]),
@@ -152,9 +150,7 @@ class DataSet:
         n_samples_genotype: int = len(fam_df)
         self._logger.info("Loading .master file")
         covar_keys = (
-            self.cfg.covar_config.covar_keys
-            if self.cfg.covar_config.include_covars
-            else []
+            self.cfg.covar_config.covar_keys if self.cfg.covar_config.include_covars else []
         )
         master_df_keys = ["IID", "population", self.cfg.phenotype_id] + covar_keys
         master_df: pd.DataFrame = plink_utils.load_master_data(
@@ -178,9 +174,7 @@ class DataSet:
 
         # filter MAF
         if self.cfg.maf_threshold > 0.0:
-            self._logger.info(
-                f"Filtering variants with MAF threshold: {self.cfg.maf_threshold}"
-            )
+            self._logger.info(f"Filtering variants with MAF threshold: {self.cfg.maf_threshold}")
 
             # calculate maf
             freq_df = plink_utils.calculate_maf(
@@ -225,33 +219,22 @@ class DataSet:
 
             self.sorted_variant_idxs = sorted_variant_df.index.values
             self.num_windows = self.shape[1] // self.cfg.variant_sampling.stride
-            overlap = (
-                self.cfg.variant_sampling.max_features
-                - self.cfg.variant_sampling.stride
-            )
-            self._logger.info(
-                f"Mapped SNPs to {self.num_windows} windows with {overlap} overlap"
-            )
+            overlap = self.cfg.variant_sampling.max_features - self.cfg.variant_sampling.stride
+            self._logger.info(f"Mapped SNPs to {self.num_windows} windows with {overlap} overlap")
         if self.cfg.variant_sampling.strat == "GWAS":
-            self.genotype.annotation_df["sampling_prob"] = (
-                data_set_utils.get_gwas_priors(
-                    self.genotype.annotation_df["snp"].values,
-                    self.cfg.variant_sampling.gwas_config,
-                )
+            self.genotype.annotation_df["sampling_prob"] = data_set_utils.get_gwas_priors(
+                self.genotype.annotation_df["snp"].values,
+                self.cfg.variant_sampling.gwas_config,
             )
         elif self.cfg.variant_sampling.strat == "MAF":
             self.genotype.annotation_df["sampling_prob"] = (
-                self.genotype.annotation_df["MAF"].values
-                / self.genotype.annotation_df["MAF"].sum()
+                self.genotype.annotation_df["MAF"].values / self.genotype.annotation_df["MAF"].sum()
             )
         elif self.cfg.variant_sampling.strat == "LD":
             # setup eps
             self._initial_eps = self.cfg.variant_sampling.ld_config.eps
             self._current_eps = self.cfg.variant_sampling.ld_config.eps
-            if (
-                self.cfg.is_train
-                and self.cfg.variant_sampling.ld_config.eps_schedule != "constant"
-            ):
+            if self.cfg.is_train and self.cfg.variant_sampling.ld_config.eps_schedule != "constant":
                 self._logger.info(
                     f"Initialized epsilon scheduling: {self.cfg.variant_sampling.ld_config.eps_schedule} with initial eps={self._initial_eps}, step_size={self.cfg.variant_sampling.ld_config.eps_step_size}"
                 )
@@ -294,19 +277,13 @@ class DataSet:
 
     def _parse_idxs(
         self,
-        key: Tuple[
-            int | slice | List | npt.ArrayLike, int | slice | List | npt.ArrayLike
-        ],
+        key: Tuple[int | slice | List | npt.ArrayLike, int | slice | List | npt.ArrayLike],
     ) -> Tuple[int | npt.ArrayLike, int | npt.ArrayLike]:
         samples, variants = key
 
         # get sample_idxs
         if isinstance(samples, slice):
-            if (
-                samples.start is not None
-                or samples.stop is not None
-                or samples.step is not None
-            ):
+            if samples.start is not None or samples.stop is not None or samples.step is not None:
                 raise ValueError("Only full slice ':' is supported for sample indices")
             sample_idxs = self.phenotype.sample_idxs
         elif isinstance(samples, (int, list, np.ndarray)):
@@ -316,19 +293,13 @@ class DataSet:
                 sample_idxs = np.array(samples, dtype=np.uint32)
 
             if not set(sample_idxs).issubset(self.phenotype.sample_idxs):
-                raise IndexError(
-                    "Not all sample_idxs used for slicing could be found in dataset"
-                )
+                raise IndexError("Not all sample_idxs used for slicing could be found in dataset")
         else:
             raise TypeError(f"Invalid sample index type: {type(samples)}")
 
         # get variant_idxs
         if isinstance(variants, slice):
-            if (
-                variants.start is not None
-                or variants.stop is not None
-                or variants.step is not None
-            ):
+            if variants.start is not None or variants.stop is not None or variants.step is not None:
                 raise ValueError("Only full slice ':' is supported for variant indices")
             variant_idxs = self.genotype.variant_idxs
         elif isinstance(variants, (int, list, np.ndarray)):
@@ -338,9 +309,7 @@ class DataSet:
                 variant_idxs = np.array(variants, dtype=np.uint32)
 
             if not set(variant_idxs).issubset(self.genotype.variant_idxs):
-                variant_idxs_not_found = np.setdiff1d(
-                    variant_idxs, self.genotype.variant_idxs
-                )
+                variant_idxs_not_found = np.setdiff1d(variant_idxs, self.genotype.variant_idxs)
                 raise IndexError(
                     f"Could not find {len(variant_idxs_not_found)} variant_idxs in dataset: {variant_idxs_not_found}"
                 )
@@ -351,10 +320,7 @@ class DataSet:
 
     def __getitem__(
         self,
-        key: (
-            int
-            | Tuple[int | slice | list | np.ndarray, int | slice | list | np.ndarray]
-        ),
+        key: int | Tuple[int | slice | list | np.ndarray, int | slice | list | np.ndarray],
     ) -> DataBatch | List[DataBatch]:
         if isinstance(key, (int, list, np.ndarray)):
             key = (key, slice(None))
@@ -362,9 +328,7 @@ class DataSet:
         X, geno_annotation_df = self.genotype[sample_idxs, variant_idxs]
         y, pheno_annotation_df, residuals = self.phenotype[sample_idxs]
 
-        return DataBatch(
-            self.cfg, X, geno_annotation_df, y, pheno_annotation_df, residuals
-        )
+        return DataBatch(self.cfg, X, geno_annotation_df, y, pheno_annotation_df, residuals)
 
     def score_variants(self, ram_mb: int):
         if self.cfg.variant_sampling.strat != "LD":
@@ -378,22 +342,20 @@ class DataSet:
         # load from cache if available
         sid = data_set_utils.hash_ndarray(self.phenotype.sample_idxs)
         vid = data_set_utils.hash_ndarray(self.genotype.variant_idxs)
-        prune_kb=self.cfg.variant_sampling.ld_config.prune_kb
-        prune_step=self.cfg.variant_sampling.ld_config.prune_step
-        prune_r2=self.cfg.variant_sampling.ld_config.prune_r2
-        tau=self.cfg.variant_sampling.ld_config.tau
-        ld_window_kb=self.cfg.variant_sampling.ld_config.ld_window_kb
-        ld_window=self.cfg.variant_sampling.ld_config.ld_window
-        temp=self.cfg.variant_sampling.ld_config.temp
+        prune_kb = self.cfg.variant_sampling.ld_config.prune_kb
+        prune_step = self.cfg.variant_sampling.ld_config.prune_step
+        prune_r2 = self.cfg.variant_sampling.ld_config.prune_r2
+        tau = self.cfg.variant_sampling.ld_config.tau
+        ld_window_kb = self.cfg.variant_sampling.ld_config.ld_window_kb
+        ld_window = self.cfg.variant_sampling.ld_config.ld_window
+        temp = self.cfg.variant_sampling.ld_config.temp
         max_score = self.cfg.variant_sampling.ld_config.max_score
         block_cache = (
-            Path(self._cache_path) /
-            f"cache_df_{sid}_{vid}_{prune_kb}_{prune_step}_{prune_r2}_{tau}_{ld_window_kb}_{ld_window}_{temp}_{max_score}.parquet"
+            Path(self._cache_path)
+            / f"cache_df_{sid}_{vid}_{prune_kb}_{prune_step}_{prune_r2}_{tau}_{ld_window_kb}_{ld_window}_{temp}_{max_score}.parquet"
         )
         if block_cache.exists():
-            self._logger.info(
-                "Loading cached variant block ids and scores from cache..."
-            )
+            self._logger.info("Loading cached variant block ids and scores from cache...")
             cached = pd.read_parquet(block_cache)
 
             if (
@@ -402,13 +364,9 @@ class DataSet:
                 and ("block_idx" in cached)
                 and ("block_id" in cached)
                 and len(cached) == len(self.genotype.annotation_df)
-                and np.array_equal(
-                    cached.index.values, self.genotype.annotation_df.index.values
-                )
+                and np.array_equal(cached.index.values, self.genotype.annotation_df.index.values)
             ):
-                self.genotype.annotation_df["scores"] = (
-                    cached["scores"].astype(float).values
-                )
+                self.genotype.annotation_df["scores"] = cached["scores"].astype(float).values
                 self.genotype.annotation_df["block_idx"] = cached["block_idx"].values
                 self.genotype.annotation_df["block_id"] = cached["block_id"].values
                 initiated = True
@@ -433,7 +391,7 @@ class DataSet:
                 ld_window_kb=ld_window_kb,
                 ld_window=ld_window,
                 include_x=self.cfg.include_x_chromosome,
-                ram_mb=ram_mb
+                ram_mb=ram_mb,
             )
 
             # merge block_id with genotype annotation_df
@@ -449,9 +407,7 @@ class DataSet:
             self._logger.info("Computing scores...")
             assigned_mask = self.genotype.annotation_df["block_idx"] != -1
             y = self.get_labels(use_resids=False)
-            scores = pd.Series(
-                1.0, index=self.genotype.annotation_df.index, dtype=float
-            )
+            scores = pd.Series(1.0, index=self.genotype.annotation_df.index, dtype=float)
 
             # Score all variants
             def _score_chunk(variant_idxs: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -469,24 +425,22 @@ class DataSet:
             denom = max(1, len(self) * 4)
             variant_idxs = self.genotype.variant_idxs
             v_chunk = max(1, min(len(variant_idxs), max_bytes // denom))
-            vidx_chunks = [variant_idxs[i:i+v_chunk] for i in range(0, len(variant_idxs), v_chunk)]
+            vidx_chunks = [
+                variant_idxs[i : i + v_chunk] for i in range(0, len(variant_idxs), v_chunk)
+            ]
             results = Parallel(
-                n_jobs=n_jobs, 
+                n_jobs=n_jobs,
                 prefer="threads",
-                batch_size=1,          # one chunk per task (don’t bundle)
+                batch_size=1,  # one chunk per task (don’t bundle)
                 pre_dispatch=n_jobs,
-            )(
-                delayed(_score_chunk)(idxs) for idxs in vidx_chunks
-            )
+            )(delayed(_score_chunk)(idxs) for idxs in vidx_chunks)
 
             for idxs, s in results:
                 scores.loc[idxs] = s
 
             self._logger.info("Normalizing scores per block...")
-            blocks = (
-                self.genotype.annotation_df
-                .groupby("block_idx")
-                .apply(lambda d: d.index.values, include_groups=False)
+            blocks = self.genotype.annotation_df.groupby("block_idx").apply(
+                lambda d: d.index.values, include_groups=False
             )
             for variant_idxs in blocks:
                 scores.loc[variant_idxs] = utils.safe_softmax(scores[variant_idxs], temp=temp)
@@ -498,7 +452,7 @@ class DataSet:
                 {
                     "scores": scores.values,
                     "block_idx": self.genotype.annotation_df["block_idx"].values,
-                    "block_id": self.genotype.annotation_df["block_id"].values
+                    "block_id": self.genotype.annotation_df["block_id"].values,
                 },
                 index=self.genotype.annotation_df.index,
             ).sort_index()
@@ -519,7 +473,9 @@ class DataSet:
             f"Mapped SNPs to {int(n_blocks)} LD blocks with an average length of {ld_block_len.mean():.2f}. {num_not_assigned} SNPs have not been assigned to any LD block."
         )
         if n_blocks > self.cfg.variant_sampling.max_features:
-            self._logger.warning(f"Requested max_features={self.cfg.variant_sampling.max_features} < number of LD blocks. Consider increasing max_features")
+            self._logger.warning(
+                f"Requested max_features={self.cfg.variant_sampling.max_features} < number of LD blocks. Consider increasing max_features"
+            )
 
     def sample_batch_idxs(
         self, batch_idx: int, seed: int | None = None
@@ -546,22 +502,17 @@ class DataSet:
                     self.cfg.sample_sampling.strat in ["stratify", "balanced"]
                 ):
                     strategy = (
-                        "stratified"
-                        if self.cfg.sample_sampling.strat == "stratify"
-                        else "balanced"
+                        "stratified" if self.cfg.sample_sampling.strat == "stratify" else "balanced"
                     )
 
                     if self.cfg.sample_sampling.balance_pops:
                         batch_sample_idxs = []
                         for population in self.cfg.populations:
-                            pop_mask = (
-                                self.phenotype.annotation_df["population"] == population
-                            )
+                            pop_mask = self.phenotype.annotation_df["population"] == population
 
                             if strategy == "stratified":
-                                samples_per_pop = (
-                                    self.cfg.sample_sampling.max_samples
-                                    // len(self.cfg.populations)
+                                samples_per_pop = self.cfg.sample_sampling.max_samples // len(
+                                    self.cfg.populations
                                 )
                                 pop_sample_idxs = data_set_utils.adaptive_sampling(
                                     sample_idxs=sample_idxs[pop_mask],
@@ -569,7 +520,7 @@ class DataSet:
                                     classification=self.cfg.classification,
                                     size=samples_per_pop,
                                     strategy=strategy,
-                                    rng=rng
+                                    rng=rng,
                                 )
                             else:  # balanced
                                 pop_sample_idxs = data_set_utils.adaptive_sampling(
@@ -592,7 +543,7 @@ class DataSet:
                             size=self.cfg.sample_sampling.max_samples,
                             strategy=strategy,
                             k=self.cfg.sample_sampling.k if strategy == "balanced" else None,
-                            rng=rng
+                            rng=rng,
                         )
 
                 elif self.cfg.sample_sampling.balance_pops:
@@ -601,9 +552,7 @@ class DataSet:
                     )
                     batch_sample_idxs = []
                     for population in self.cfg.populations:
-                        pop_mask = (
-                            self.phenotype.annotation_df["population"] == population
-                        )
+                        pop_mask = self.phenotype.annotation_df["population"] == population
                         batch_sample_idxs.append(
                             rng.choice(
                                 sample_idxs[pop_mask],
@@ -620,9 +569,7 @@ class DataSet:
                     )
 
                 if self.cfg.classification:
-                    y_batch = self.phenotype.annotation_df.loc[
-                        batch_sample_idxs, "y"
-                    ].values
+                    y_batch = self.phenotype.annotation_df.loc[batch_sample_idxs, "y"].values
                     if len(np.unique(y_batch)) < 2:
                         logging.warning(
                             f"Resampling attempt {resample_count + 1}: "
@@ -641,18 +588,14 @@ class DataSet:
 
         self._update_eps(batch_idx)
 
-        if (self.cfg.variant_sampling.strat == "window") and (
-            batch_idx < self.num_windows
-        ):
+        if (self.cfg.variant_sampling.strat == "window") and (batch_idx < self.num_windows):
             window_size = self.cfg.variant_sampling.max_features
             start_idx = batch_idx * self.cfg.variant_sampling.stride
 
             if batch_idx == self.num_windows - 1:
                 batch_variant_idxs = self.sorted_variant_idxs[-window_size:]
             else:
-                batch_variant_idxs = self.sorted_variant_idxs[
-                    start_idx : start_idx + window_size
-                ]
+                batch_variant_idxs = self.sorted_variant_idxs[start_idx : start_idx + window_size]
         elif self.cfg.variant_sampling.strat == "LD":
             k = self.cfg.variant_sampling.max_features
 
@@ -675,26 +618,30 @@ class DataSet:
                     picks = rng.choice(block_indices, size=samples_per_block, replace=replace)
                     return picks.astype(np.uint32)
 
-                # exploitation: sample ~ p 
-                sampling_probs = self.genotype.annotation_df.loc[block_indices, "sampling_prob"].to_numpy(float)
+                # exploitation: sample ~ p
+                sampling_probs = self.genotype.annotation_df.loc[
+                    block_indices, "sampling_prob"
+                ].to_numpy(float)
                 replace = samples_per_block > len(block_indices)
-                picks = rng.choice(block_indices, size=samples_per_block, p=sampling_probs, replace=replace)
+                picks = rng.choice(
+                    block_indices, size=samples_per_block, p=sampling_probs, replace=replace
+                )
                 return picks.astype(np.uint32)
-                
-            def epsilon_greedy_unassigned(
-                unassigned_idxs: np.ndarray, n_select: int
-            ) -> np.ndarray:
+
+            def epsilon_greedy_unassigned(unassigned_idxs: np.ndarray, n_select: int) -> np.ndarray:
                 n_greedy = int(n_select * (1 - self.cfg.variant_sampling.ld_config.eps))
                 n_random = n_select - n_greedy
 
                 # pick n_greedy variants
-                if n_greedy > 0: # sample from sampling_prob
+                if n_greedy > 0:  # sample from sampling_prob
                     replace = n_greedy > len(unassigned_idxs)
                     if replace:
                         self._logger.warning(
                             f"Requested max_features={n_greedy} > unassigned SNPs ({len(unassigned_idxs)}). Sampling with replacement."
                         )
-                    p = self.genotype.annotation_df.loc[unassigned_idxs, "sampling_prob"].to_numpy(float)
+                    p = self.genotype.annotation_df.loc[unassigned_idxs, "sampling_prob"].to_numpy(
+                        float
+                    )
                     greedy_idxs = rng.choice(
                         unassigned_idxs,
                         size=n_greedy,
@@ -706,9 +653,7 @@ class DataSet:
 
                 # pick n_random variants randomly
                 if n_random > 0:
-                    rest_idxs = np.setdiff1d(
-                        unassigned_idxs, greedy_idxs, assume_unique=True
-                    )
+                    rest_idxs = np.setdiff1d(unassigned_idxs, greedy_idxs, assume_unique=True)
                     replace = n_random > len(rest_idxs)
                     random_idxs = rng.choice(rest_idxs, size=n_random, replace=replace)
                 else:
@@ -720,12 +665,12 @@ class DataSet:
                 unassigned_variant_idxs = self.genotype.variant_idxs[~assigned_mask]
                 if len(unassigned_variant_idxs) == 0:
                     raise ValueError("No LD blocks and no unassigned SNPs available")
-                
+
                 batch_variant_idxs = epsilon_greedy_unassigned(unassigned_variant_idxs, n_select=k)
-                
+
                 batch_variant_idxs = epsilon_greedy_unassigned(unassigned_variant_idxs, n_select=k)
             else:
-                if k < B: # more than k LD blocks
+                if k < B:  # more than k LD blocks
                     n_blocks = int(B / (B + N) * k)
                     n_unassigned = k - n_blocks
 
@@ -734,36 +679,30 @@ class DataSet:
                     block_picks = [sample_from_block(block, 1) for block in selected_blocks]
                     block_variant_idxs = np.concatenate(block_picks).astype(np.uint32)
 
-                    unassigned_variant_idxs = self.genotype.variant_idxs[
-                        ~assigned_mask
-                    ]
-                    selected_unassigned_variant_idxs = epsilon_greedy_unassigned(unassigned_variant_idxs, n_select=n_unassigned)
+                    unassigned_variant_idxs = self.genotype.variant_idxs[~assigned_mask]
+                    selected_unassigned_variant_idxs = epsilon_greedy_unassigned(
+                        unassigned_variant_idxs, n_select=n_unassigned
+                    )
                     batch_variant_idxs = np.concatenate(
                         [block_variant_idxs, selected_unassigned_variant_idxs],
                         dtype=np.uint32,
                     )
-                else: # k >= v_per_block * # LD blocks
+                else:  # k >= v_per_block * # LD blocks
                     block_picks = [sample_from_block(block, 1) for block in blocks]
                     block_variant_idxs = np.concatenate(block_picks).astype(np.uint32)
                     left = k - B
 
                     # fill remainder from unassigned SNPs
                     if left > 0:
-                        unassigned_variant_idxs = self.genotype.variant_idxs[
-                            ~assigned_mask
-                        ]
+                        unassigned_variant_idxs = self.genotype.variant_idxs[~assigned_mask]
                         if len(unassigned_variant_idxs) == 0:
                             self._logger.warning(
                                 f"No unassigend SNPs available to fill remanider of {left} variants. Using only per block variants!"
                             )
-                            selected_unassigned_variant_idxs = np.array(
-                                [], dtype=np.uint32
-                            )
+                            selected_unassigned_variant_idxs = np.array([], dtype=np.uint32)
                         else:
-                            selected_unassigned_variant_idxs = (
-                                epsilon_greedy_unassigned(
-                                    unassigned_variant_idxs, n_select=left
-                                )
+                            selected_unassigned_variant_idxs = epsilon_greedy_unassigned(
+                                unassigned_variant_idxs, n_select=left
                             )
                         batch_variant_idxs = np.concatenate(
                             [block_variant_idxs, selected_unassigned_variant_idxs],
@@ -773,13 +712,11 @@ class DataSet:
                         batch_variant_idxs = block_variant_idxs
 
             batch_variant_idxs = np.unique(batch_variant_idxs)
-            batch_variant_idxs = np.sort(batch_variant_idxs) 
+            batch_variant_idxs = np.sort(batch_variant_idxs)
             batch_variant_idxs = np.unique(batch_variant_idxs)
-            batch_variant_idxs = np.sort(batch_variant_idxs) 
+            batch_variant_idxs = np.sort(batch_variant_idxs)
         else:  # random
-            if (self.cfg.variant_sampling.strat == "window") and (
-                batch_idx == self.num_windows
-            ):
+            if (self.cfg.variant_sampling.strat == "window") and (batch_idx == self.num_windows):
                 self._logger.info(
                     "Did not converge on entirety of windows. Proceeding with random sampling!"
                 )
@@ -796,9 +733,7 @@ class DataSet:
             if self.cfg.variant_sampling.max_features > len(pos_mask):
                 sampled_pos_mask_idxs = np.arange(len(pos_mask))
             else:
-                sampling_probs = self.genotype.annotation_df["sampling_prob"].values[
-                    pos_mask
-                ]
+                sampling_probs = self.genotype.annotation_df["sampling_prob"].values[pos_mask]
                 p = sampling_probs / np.sum(sampling_probs, dtype=float)
                 sampled_pos_mask_idxs = rng.choice(
                     len(pos_mask),
@@ -809,9 +744,7 @@ class DataSet:
 
             batch_variant_idxs = variant_idxs[pos_mask[sampled_pos_mask_idxs]]
 
-        return np.sort(batch_sample_idxs).astype(np.uint32), batch_variant_idxs.astype(
-            np.uint32
-        )
+        return np.sort(batch_sample_idxs).astype(np.uint32), batch_variant_idxs.astype(np.uint32)
 
     def get_covars(self) -> DataBatch:
         Z = self.phenotype.get_covars()
@@ -862,7 +795,7 @@ class DataSet:
             classification=self.cfg.classification,
             size=n_samples,
             strategy="stratified",
-            rng=rng
+            rng=rng,
         )
 
         return np.sort(background_sample_idxs).astype(np.uint32)

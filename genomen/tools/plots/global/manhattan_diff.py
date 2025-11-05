@@ -49,8 +49,12 @@ def plot_shap_diff_gwas(
         Proximity window (in base pairs) for grouping labels into peak "sets".
     """
     # Copy to avoid modifying inputs
-    lin = linear_shap_df[[chr_col, pos_col, shap_col] + ([snp_col] if snp_col in linear_shap_df.columns else [])].copy()
-    nonlin = non_linear_shap_df[[chr_col, pos_col, shap_col] + ([snp_col] if snp_col in non_linear_shap_df.columns else [])].copy()
+    lin = linear_shap_df[
+        [chr_col, pos_col, shap_col] + ([snp_col] if snp_col in linear_shap_df.columns else [])
+    ].copy()
+    nonlin = non_linear_shap_df[
+        [chr_col, pos_col, shap_col] + ([snp_col] if snp_col in non_linear_shap_df.columns else [])
+    ].copy()
     lin.rename(columns={shap_col: f"{shap_col}_linear"}, inplace=True)
     nonlin.rename(columns={shap_col: f"{shap_col}_non_linear"}, inplace=True)
 
@@ -86,7 +90,8 @@ def plot_shap_diff_gwas(
     merged = pd.merge(
         lin,
         nonlin,
-        on=[chr_col, pos_col] + ([snp_col] if (snp_col in lin.columns and snp_col in nonlin.columns) else []),
+        on=[chr_col, pos_col]
+        + ([snp_col] if (snp_col in lin.columns and snp_col in nonlin.columns) else []),
         how=how,
         suffixes=("_linear", "_non_linear"),
         validate="m:m",
@@ -98,7 +103,9 @@ def plot_shap_diff_gwas(
     merged["_chr_order"] = lbl_ord.map(lambda x: x[1])
 
     # Compute delta = |non-linear| - |linear|
-    merged["delta_shap"] = merged[f"{shap_col}_non_linear"].abs() - merged[f"{shap_col}_linear"].abs()
+    merged["delta_shap"] = (
+        merged[f"{shap_col}_non_linear"].abs() - merged[f"{shap_col}_linear"].abs()
+    )
 
     # Drop rows with missing essentials
     merged = merged.dropna(subset=[pos_col, "delta_shap", "_chr_order"]).copy()
@@ -152,7 +159,9 @@ def plot_shap_diff_gwas(
     ax.set_xticklabels(tick_labels, fontsize=9, rotation=0)
     ax.set_xlim(float(merged["pos_cum"].min()), float(merged["pos_cum"].max()))
     ax.set_xlabel("Chromosome")
-    ax.set_ylabel(f"{'log(' if log_scale else ''}|SHAP (non-linear)| − |SHAP (linear)|{')' if log_scale else ''}")
+    ax.set_ylabel(
+        f"{'log(' if log_scale else ''}|SHAP (non-linear)| − |SHAP (linear)|{')' if log_scale else ''}"
+    )
     ax.set_title(f"ΔSHAP (non-linear vs linear) for phenotype {phenotype}")
 
     if log_scale:
@@ -176,7 +185,9 @@ def plot_shap_diff_gwas(
             # group into "peak sets" by chromosome and proximity window
             # We'll sweep left-to-right and create groups whose centers are updated by running mean.
             groups: Dict[int, List[Dict]] = {}  # chr_order -> list of groups
-            top = top.sort_values(by=["_chr_order", pos_col, "_delta_abs"], ascending=[True, True, False])
+            top = top.sort_values(
+                by=["_chr_order", pos_col, "_delta_abs"], ascending=[True, True, False]
+            )
 
             def assign_group(chr_order: int, pos_bp: float):
                 if chr_order not in groups:
@@ -195,7 +206,9 @@ def plot_shap_diff_gwas(
             # annotate up to 3 per group, prioritizing larger |Δ|
             # Also spread labels vertically and horizontally to reduce collisions.
             # Offsets cycle through a small set of patterns.
-            x_offsets = np.array([8e6, -8e6, 0.0, 12e6, -12e6])  # in bp (converted via pos_cum by local scale)
+            x_offsets = np.array(
+                [8e6, -8e6, 0.0, 12e6, -12e6]
+            )  # in bp (converted via pos_cum by local scale)
             y_offsets = np.array([0.15, 0.2, -0.18, -0.25, 0.22])  # fraction of y-range
             y_range = float(merged["delta_shap"].max() - merged["delta_shap"].min()) or 1.0
 
@@ -233,9 +246,10 @@ def plot_shap_diff_gwas(
     fig.tight_layout()
     return merged, (fig, ax)
 
+
 def main(
     linear_data_dir: Path | str,
-    non_linear_data_dir: Path |str,
+    non_linear_data_dir: Path | str,
     task_ids: List[int] | int = list(range(1, 21)),
     shap_col: str = "shap_values",
     chr_col: str = "chr_name",
@@ -260,16 +274,20 @@ def main(
 
     for task_id in task_ids:
         phenotype_name, phenotype_id = utils.setup(task_id)
-        logger.info(f"Plotting global shap values for phenotype {phenotype_name} ({phenotype_id})...")
+        logger.info(
+            f"Plotting global shap values for phenotype {phenotype_name} ({phenotype_id})..."
+        )
 
         linear_path = linear_data_dir / f"{phenotype_name}_annotation_df.parquet"
         non_linear_path = non_linear_data_dir / f"{phenotype_name}_annotation_df.parquet"
 
         if not linear_path.is_file():
             logger.warning(f"Could not find linear annotation file for phenotype {phenotype_name}")
-            continue    
+            continue
         elif not non_linear_path.is_file():
-            logger.warning(f"Could not find non-linear annotation file for phenotype {phenotype_name}")
+            logger.warning(
+                f"Could not find non-linear annotation file for phenotype {phenotype_name}"
+            )
             continue
         else:
             # Load inputs (Parquet as per your setup)

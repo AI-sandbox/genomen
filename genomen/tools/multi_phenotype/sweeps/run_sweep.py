@@ -22,9 +22,7 @@ def get_phenotype_name(task_id):
     return phenotype_name
 
 
-def run_sweep(
-    task_id=int | None, model_type: str = "lightgbm", project_name: str = "MetaPRS"
-):
+def run_sweep(task_id=int | None, model_type: str = "lightgbm", project_name: str = "MetaPRS"):
     """Create and run a sweep with phenotype name in the sweep name."""
     # Get task_id from environment if not provided
     if task_id is None:
@@ -40,9 +38,7 @@ def run_sweep(
 
     # Update sweep name to include phenotype
     sweep_config["name"] = f"genomen_{model_type}_{phenotype_name}_sweep"
-    logger.info(
-        f"Creating sweep for phenotype: {phenotype_name} with model type: {model_type}"
-    )
+    logger.info(f"Creating sweep for phenotype: {phenotype_name} with model type: {model_type}")
 
     # Initialize wandb and create sweep
     sweep_id = wandb.sweep(sweep=sweep_config, project=project_name)

@@ -17,9 +17,7 @@ from genomen.data import DataSet, split
 from genomen.model import GenomenModel
 from genomen.tools.multi_phenotype.phenotype_config import PHENOTYPES
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -44,29 +42,20 @@ def run_genomen(configs, phenotype, compute_local_shap):
 
     use_resid = (
         configs[0]["DataSetConfig"]["covar_config"]["include_covars"]
-        and configs[1]["GenomenModelConfig"]["covar_config"]["covar_strat"]
-        == "residualization"
+        and configs[1]["GenomenModelConfig"]["covar_config"]["covar_strat"] == "residualization"
     )
     configs[1]["GenomenModelConfig"]["geno_config"]["preprocessing_config"][
         "feature_selection"
     ].update(
-        {
-            "score_func": "chi2"
-            if phenotype["classification"] and not use_resid
-            else "f_regression"
-        }
+        {"score_func": "chi2" if phenotype["classification"] and not use_resid else "f_regression"}
     )
 
-    configs[2]["TrainConfig"].update(
-        {"scorer": "rocauc" if phenotype["classification"] else "r2"}
-    )
+    configs[2]["TrainConfig"].update({"scorer": "rocauc" if phenotype["classification"] else "r2"})
 
     logger.info(configs)
 
     # Create temporary config file
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".yml", delete=False
-    ) as temp_config:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as temp_config:
         yaml.safe_dump_all(configs, temp_config)
         temp_config_path = temp_config.name
 
@@ -76,9 +65,7 @@ def run_genomen(configs, phenotype, compute_local_shap):
     # Initialize dataloader
     logger.info("Initiate data set...")
     dataset = DataSet()
-    train_set, test_set, val_set = split(
-        dataset, split_by_col=("split", ("train", "test", "val"))
-    )
+    train_set, test_set, val_set = split(dataset, split_by_col=("split", ("train", "test", "val")))
 
     logger.info("Train Model...")
     model = GenomenModel()
@@ -124,15 +111,16 @@ def run_genomen(configs, phenotype, compute_local_shap):
             logger.info("Computing local shap values for all positive cases (classification)")
             # test
             test_local_shap_df = model.geno_model.compute_local_shap(
-                test_set, 
-                sample_idxs=test_set.phenotype.sample_idxs[test_set.get_labels() == 1]
+                test_set, sample_idxs=test_set.phenotype.sample_idxs[test_set.get_labels() == 1]
             )
             test_local_shap_df["pred"] = geno_preds[test_set.get_labels() == 1]
             test_local_shap_df["split"] = "test"
         else:
             test_all = test_set.phenotype.sample_idxs
             test_sample = _sample_idxs(test_all, n=2000, seed=42)
-            test_local_shap_df = model.geno_model.compute_local_shap(test_set, sample_idxs=test_sample)
+            test_local_shap_df = model.geno_model.compute_local_shap(
+                test_set, sample_idxs=test_sample
+            )
             test_preds, _, _ = model.predict(test_set)
             test_preds_s = pd.Series(test_preds, index=test_all)
             test_local_shap_df["pred"] = test_preds_s.reindex(test_local_shap_df.index).values
@@ -159,7 +147,7 @@ def main(
     feature_selection: Literal["k_best", "mutual_info", "none"] | None = None,
     k: int | None = None,
     balance_k: int | None = None,
-    batch_size: int | None = 2, 
+    batch_size: int | None = 2,
     impute_val: float | None = None,
     maf: float | None = None,
     eps: float | None = None,
@@ -178,7 +166,7 @@ def main(
     compute_local_shap: bool = False,
     compute_interactions: bool | None = False,
     n_jobs: int | None = 32,
-    backend: Literal["gpu", "cpu"] = "cpu"
+    backend: Literal["gpu", "cpu"] = "cpu",
 ):
     # Get phenotype id
     with open("genomen/tools/multi_phenotype/train/configs/config.yml", "r") as f:
@@ -187,16 +175,12 @@ def main(
     benchmark_config = configs[3]["BenchmarkConfig"]
 
     # Get phenotype from config based on task_id
-    phenotype_name = benchmark_config["phenotypes"][
-        task_id - 1
-    ]  # Convert to 0-based index
+    phenotype_name = benchmark_config["phenotypes"][task_id - 1]  # Convert to 0-based index
     phenotype = PHENOTYPES[phenotype_name]
 
     # Load config
     if use_phenotype_config:
-        config_path = (
-            f"genomen/tools/multi_phenotype/train/configs/{phenotype_name}_config.yml"
-        )
+        config_path = f"genomen/tools/multi_phenotype/train/configs/{phenotype_name}_config.yml"
         with open(config_path, "r") as f:
             configs = list(yaml.load_all(f, Loader=yaml.SafeLoader))
 
@@ -208,9 +192,13 @@ def main(
         if variant_sampling_strat is not None:
             configs[0]["DataSetConfig"]["variant_sampling"]["strat"] = variant_sampling_strat
             if variant_sampling_strat == "window":
-                configs[0]["DataSetConfig"]["variant_sampling"]["window_overlap_ratio"] = window_overlap_ratio
+                configs[0]["DataSetConfig"]["variant_sampling"][
+                    "window_overlap_ratio"
+                ] = window_overlap_ratio
             if (variant_sampling_strat == "GWAS") and (impute_val is not None):
-                configs[0]["DataSetConfig"]["variant_sampling"]["gwas_config"]["impute_val"] = impute_val
+                configs[0]["DataSetConfig"]["variant_sampling"]["gwas_config"][
+                    "impute_val"
+                ] = impute_val
         # sample_sampling_strat
         if sample_sampling_strat is not None:
             configs[0]["DataSetConfig"]["sample_sampling"]["strat"] = sample_sampling_strat
@@ -224,7 +212,9 @@ def main(
             configs[0]["DataSetConfig"]["variant_sampling"]["ld_config"]["eps"] = eps
         # eps_schedule
         if eps_schedule is not None:
-            configs[0]["DataSetConfig"]["variant_sampling"]["ld_config"]["eps_schedule"] = eps_schedule
+            configs[0]["DataSetConfig"]["variant_sampling"]["ld_config"][
+                "eps_schedule"
+            ] = eps_schedule
         # n_per_block
         if n_per_block is not None:
             configs[0]["DataSetConfig"]["variant_sampling"]["n_per_block"] = n_per_block
@@ -241,9 +231,13 @@ def main(
             configs[0]["DataSetConfig"]["variant_sampling"]["max_features"] = max_features
         # feature seleciton
         if feature_selection is not None:
-            configs[1]["GenomenModelConfig"]["geno_config"]["preprocessing_config"]["feature_selection"]["method"] = feature_selection
+            configs[1]["GenomenModelConfig"]["geno_config"]["preprocessing_config"][
+                "feature_selection"
+            ]["method"] = feature_selection
         if k is not None:
-            configs[1]["GenomenModelConfig"]["geno_config"]["preprocessing_config"]["feature_selection"]["k"] = k
+            configs[1]["GenomenModelConfig"]["geno_config"]["preprocessing_config"][
+                "feature_selection"
+            ]["k"] = k
         # batch_size
         if batch_size is not None:
             configs[2]["TrainConfig"]["batch_size"] = batch_size
@@ -258,7 +252,9 @@ def main(
             configs[2]["TrainConfig"]["compute_shap"] = compute_global_shap
             configs[2]["TrainConfig"]["save_annotation"] = True
             if compute_interactions is not None:
-                configs[1]["GenomenModelConfig"]["geno_config"]["compute_interactions"] = compute_interactions
+                configs[1]["GenomenModelConfig"]["geno_config"][
+                    "compute_interactions"
+                ] = compute_interactions
         # maf
         if maf is not None:
             configs[0]["DataSetConfig"]["maf_threshold"] = maf
@@ -267,25 +263,41 @@ def main(
             configs[0]["DataSetConfig"]["include_x_chromosome"] = include_x
         # agg_model
         if agg_model is not None:
-            configs[1]["GenomenModelConfig"]["geno_config"]["aggregator_config"]["model_config"]["model_name"] = agg_model
+            configs[1]["GenomenModelConfig"]["geno_config"]["aggregator_config"]["model_config"][
+                "model_name"
+            ] = agg_model
         # use_ss
         if use_ss is not None:
-            configs[1]["GenomenModelConfig"]["geno_config"]["aggregator_config"]["use_summary_stats"] = use_ss
+            configs[1]["GenomenModelConfig"]["geno_config"]["aggregator_config"][
+                "use_summary_stats"
+            ] = use_ss
         # filter strat
         if filter_strat is not None:
-            configs[1]["GenomenModelConfig"]["geno_config"]["aggregator_config"]["filter_strat"] = filter_strat
+            configs[1]["GenomenModelConfig"]["geno_config"]["aggregator_config"][
+                "filter_strat"
+            ] = filter_strat
         # agg_strat_bin/agg_strat_cont
         if phenotype["classification"]:
             if agg_strat_bin is not None:
-                configs[1]["GenomenModelConfig"]["geno_config"]["aggregator_config"]["agg_strat"] = agg_strat_bin
+                configs[1]["GenomenModelConfig"]["geno_config"]["aggregator_config"][
+                    "agg_strat"
+                ] = agg_strat_bin
         else:
             if agg_strat_cont is not None:
-                configs[1]["GenomenModelConfig"]["geno_config"]["aggregator_config"]["agg_strat"] = agg_strat_cont
+                configs[1]["GenomenModelConfig"]["geno_config"]["aggregator_config"][
+                    "agg_strat"
+                ] = agg_strat_cont
         if geno_model == "linear":
-            configs[1]["GenomenModelConfig"]["geno_config"]["model_config"]["model_name"] = "linear_l1"
-            configs[1]["GenomenModelConfig"]["geno_config"]["model_config"]["hyperparameters"] = {"alpha": 0.01}
+            configs[1]["GenomenModelConfig"]["geno_config"]["model_config"][
+                "model_name"
+            ] = "linear_l1"
+            configs[1]["GenomenModelConfig"]["geno_config"]["model_config"]["hyperparameters"] = {
+                "alpha": 0.01
+            }
         elif geno_model == "xgb":
-            xgb_hyperparams = configs[1]["GenomenModelConfig"]["geno_config"]["model_config"]["hyperparameters"].get("xgboost", None) or {          
+            xgb_hyperparams = configs[1]["GenomenModelConfig"]["geno_config"]["model_config"][
+                "hyperparameters"
+            ].get("xgboost", None) or {
                 "booster": "gbtree",
                 "colsample_bytree": 0.8946650565969123,
                 "learning_rate": 0.060620701769366465,
@@ -294,12 +306,18 @@ def main(
                 "reg_alpha": 0.6656256452959488,
                 "reg_lambda": 0.12183231460398992,
                 "subsample": 0.8841736709630683,
-                "tree_method": "hist"
+                "tree_method": "hist",
             }
-            configs[1]["GenomenModelConfig"]["geno_config"]["model_config"]["model_name"] = "xgboost"
-            configs[1]["GenomenModelConfig"]["geno_config"]["model_config"]["hyperparameters"] = xgb_hyperparams
+            configs[1]["GenomenModelConfig"]["geno_config"]["model_config"][
+                "model_name"
+            ] = "xgboost"
+            configs[1]["GenomenModelConfig"]["geno_config"]["model_config"][
+                "hyperparameters"
+            ] = xgb_hyperparams
         elif geno_model == "lgbm":
-            lgb_hyperparams = configs[1]["GenomenModelConfig"]["geno_config"]["model_config"]["hyperparameters"].get("lightgbm", None) or {          
+            lgb_hyperparams = configs[1]["GenomenModelConfig"]["geno_config"]["model_config"][
+                "hyperparameters"
+            ].get("lightgbm", None) or {
                 "bagging_fraction": 0.6232546393535136,
                 "bagging_freq": 1,
                 "feature_fraction": 0.7568699255535379,
@@ -318,10 +336,16 @@ def main(
                 "num_leaves": 180,
                 "path_smooth": 40.095909854952,
             }
-            configs[1]["GenomenModelConfig"]["geno_config"]["model_config"]["model_name"] = "lightgbm"
-            configs[1]["GenomenModelConfig"]["geno_config"]["model_config"]["hyperparameters"] = lgb_hyperparams
+            configs[1]["GenomenModelConfig"]["geno_config"]["model_config"][
+                "model_name"
+            ] = "lightgbm"
+            configs[1]["GenomenModelConfig"]["geno_config"]["model_config"][
+                "hyperparameters"
+            ] = lgb_hyperparams
         elif geno_model == "mlp":
-            configs[1]["GenomenModelConfig"]["geno_config"]["model_config"]["model_name"] = "simple_mlp"
+            configs[1]["GenomenModelConfig"]["geno_config"]["model_config"][
+                "model_name"
+            ] = "simple_mlp"
             configs[1]["GenomenModelConfig"]["geno_config"]["model_config"]["hyperparameters"] = {}
 
     logger.info(f"Processing phenotype: {phenotype_name}")

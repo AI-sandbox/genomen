@@ -33,9 +33,7 @@ def get_plink_paths() -> Dict[str, str]:
         bed_path = bed_path.encode("utf-8") if bed_path else None
 
     except KeyError as e:
-        logger.error(
-            f"Error loading paths from .env file: {e}. Check if all paths are set."
-        )
+        logger.error(f"Error loading paths from .env file: {e}. Check if all paths are set.")
         raise
 
     return dict(
@@ -67,9 +65,7 @@ def load_fam_data(path: str) -> pd.DataFrame:
 
 
 def load_master_data(
-    path: str, 
-    columns: List[str] | None = None, 
-    sex: Literal["m", "w"] | None = None
+    path: str, columns: List[str] | None = None, sex: Literal["m", "w"] | None = None
 ) -> pd.DataFrame:
     """
     Load master file data into a DataFrame. The master file contains phenotype
@@ -85,7 +81,7 @@ def load_master_data(
     if (sex is not None) and (sex not in columns):
         columns.append("sex")
 
-    master_df = pd.read_csv(path, sep="\t", usecols=columns) 
+    master_df = pd.read_csv(path, sep="\t", usecols=columns)
     master_df["IID"] = master_df["IID"].astype(int).astype(str)
 
     if sex is not None:
@@ -153,18 +149,16 @@ def process_master_df(
         ).astype(np.uint32)
 
     # Order and filter master_df with fam_df
-    master_df = pd.merge(
-        fam_df, master_df, left_on="iid", right_on="IID", how="left"
-    ).dropna(subset=["IID"])
+    master_df = pd.merge(fam_df, master_df, left_on="iid", right_on="IID", how="left").dropna(
+        subset=["IID"]
+    )
     master_df["fam_idx"] = master_df.index
     master_df = master_df.reset_index(drop=True)
 
     return master_df
 
 
-def load_pgen_reader(
-    bed_path: bytes, n_samples: int, idxs: np.ndarray
-) -> pg.PgenReader:
+def load_pgen_reader(bed_path: bytes, n_samples: int, idxs: np.ndarray) -> pg.PgenReader:
     """
     Load a PgenReader object containing the genomic data for specific
     sample IDs.
@@ -254,33 +248,37 @@ def get_plink_path():
 
     return plink_path
 
+
 def get_repr_per_block(
-    chr_num: int, 
+    chr_num: int,
     plink_path: str | Path,
-    bfile_prefix: str, 
+    bfile_prefix: str,
     maf_threshold: int,
     prune_kb: int,
     prune_step: int,
     prune_r2: float,
-    out_dir: Path, 
+    out_dir: Path,
 ):
     # build a per-chr output prefix
     chr_prefix = out_dir / f"prn_chr{chr_num}"
     cmd = [
         plink_path,
-        "--bfile", bfile_prefix, 
-        "--chr", str(chr_num),
-        "--maf", str(maf_threshold),
-        "--indep-pairwise", str(prune_kb), str(prune_step), str(prune_r2),
-        "--out", str(chr_prefix),
+        "--bfile",
+        bfile_prefix,
+        "--chr",
+        str(chr_num),
+        "--maf",
+        str(maf_threshold),
+        "--indep-pairwise",
+        str(prune_kb),
+        str(prune_step),
+        str(prune_r2),
+        "--out",
+        str(chr_prefix),
     ]
     try:
         subprocess.run(
-            cmd, 
-            check=True, 
-            stdout=subprocess.DEVNULL, 
-            stderr=subprocess.PIPE, 
-            text=True
+            cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
         )
     except subprocess.CalledProcessError as e:
         logger.error(f"PLINK command failed for chromosome {chr_num}")
@@ -292,20 +290,21 @@ def get_repr_per_block(
 
     return chr_prefix.with_suffix(".prune.in")
 
+
 def compute_ld(
     bed_path: bytes,
     bim_path: str,
     fam_path: str,
     blocks_max_kb: int,
     maf_threshold: float,
-    prune_kb: int, 
-    prune_step: int, 
-    prune_r2: float, 
-    tau: float, 
+    prune_kb: int,
+    prune_step: int,
+    prune_r2: float,
+    tau: float,
     ld_window_kb: int,
     ld_window: int,
     include_x: bool,
-    ram_mb: int
+    ram_mb: int,
 ) -> pd.DataFrame:
     plink_path = get_plink_path()
 
@@ -344,14 +343,14 @@ def compute_ld(
             futures = [
                 exe.submit(
                     get_repr_per_block,
-                    chr, 
-                    plink_path, 
+                    chr,
+                    plink_path,
                     bfile_prefix,
                     maf_threshold,
-                    prune_kb, 
-                    prune_step, 
+                    prune_kb,
+                    prune_step,
                     prune_r2,
-                    out_auto
+                    out_auto,
                 )
                 for chr in autosomes
             ]
@@ -359,18 +358,27 @@ def compute_ld(
                 rf = future.result()
                 if rf.exists():
                     repr_files.append(rf)
-        if include_x: # sex chromosome
+        if include_x:  # sex chromosome
             out_x = tmp_dir / "prn_X"
             out_x.mkdir(exist_ok=True)
             x_cmd = [
-                plink_path, 
-                "--bfile", bfile_prefix, 
-                "--chr", "X",
-                "--maf", str(maf_threshold),
-                "--indep-pairwise", str(prune_kb), str(prune_step), str(prune_r2),
-                "--ld-xchr", "3",
-                "--out", str(out_x),
-                "--threads", str(workers)
+                plink_path,
+                "--bfile",
+                bfile_prefix,
+                "--chr",
+                "X",
+                "--maf",
+                str(maf_threshold),
+                "--indep-pairwise",
+                str(prune_kb),
+                str(prune_step),
+                str(prune_r2),
+                "--ld-xchr",
+                "3",
+                "--out",
+                str(out_x),
+                "--threads",
+                str(workers),
             ]
             subprocess.run(
                 x_cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
@@ -390,16 +398,25 @@ def compute_ld(
         # LD map from reps to all SNPs
         ld_out = tmp_dir / "ldmap"
         ld_cmd = [
-            plink_path, 
-            "--bfile", bfile_prefix,
-            "--r2", "gz",
-            "--ld-window-kb", str(ld_window_kb), 
-            "--ld-window", str(ld_window), 
-            "--ld-window-r2", str(tau),
-            "--ld-snp-list", str(reprs_path),
-            "--out", str(ld_out),
-            "--threads", str(workers),
-            "--memory", str(ram_mb)
+            plink_path,
+            "--bfile",
+            bfile_prefix,
+            "--r2",
+            "gz",
+            "--ld-window-kb",
+            str(ld_window_kb),
+            "--ld-window",
+            str(ld_window),
+            "--ld-window-r2",
+            str(tau),
+            "--ld-snp-list",
+            str(reprs_path),
+            "--out",
+            str(ld_out),
+            "--threads",
+            str(workers),
+            "--memory",
+            str(ram_mb),
         ]
         subprocess.run(
             ld_cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True

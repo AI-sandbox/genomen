@@ -50,10 +50,7 @@ def update_config_with_wandb_params(wandb_config, task_id):
         }
     )
     data_set_config["variant_sampling"].update(
-        {
-            "strat": wandb_config.variant_sampling_strategy,
-            "max_features": max_features
-        }
+        {"strat": wandb_config.variant_sampling_strategy, "max_features": max_features}
     )
     data_set_config["variant_sampling"]["ld_config"].update(
         {
@@ -64,12 +61,10 @@ def update_config_with_wandb_params(wandb_config, task_id):
 
     # Update GenomenModelConfig
     genomen_model_config = config[1]["GenomenModelConfig"]
-    genomen_model_config["covar_config"]["model_config"]["model_name"] = (
-        wandb_config.covar_model_name
-    )
-    genomen_model_config["geno_config"]["model_config"]["model_name"] = (
-        wandb_config.geno_model_name
-    )
+    genomen_model_config["covar_config"]["model_config"][
+        "model_name"
+    ] = wandb_config.covar_model_name
+    genomen_model_config["geno_config"]["model_config"]["model_name"] = wandb_config.geno_model_name
     if "ensemble_estimator_names" in wandb_config:
         genomen_model_config["geno_config"]["model_config"][
             "ensemble_estimator_names"
@@ -80,17 +75,15 @@ def update_config_with_wandb_params(wandb_config, task_id):
 
         # Process hyperparameters for each model in the ensemble
         for model_name in wandb_config.ensemble_estimator_names:
-            geno_model_hyperparams[model_name] = (
-                wandb_config.geno_model_hyperparameters.get(model_name, {})
+            geno_model_hyperparams[model_name] = wandb_config.geno_model_hyperparameters.get(
+                model_name, {}
             )
     else:
         # For single models
         geno_model_hyperparams = wandb_config.geno_model_hyperparameters.get(
             wandb_config.geno_model_name, {}
         )
-    genomen_model_config["geno_config"]["model_config"]["hyperparameters"] = (
-        geno_model_hyperparams
-    )
+    genomen_model_config["geno_config"]["model_config"]["hyperparameters"] = geno_model_hyperparams
 
     genomen_model_config["geno_config"]["aggregator_config"].update(
         {
@@ -122,15 +115,13 @@ def update_config_with_wandb_params(wandb_config, task_id):
         data_set_config["covar_config"]["include_covars"]
         and genomen_model_config["covar_config"]["covar_strat"] == "residualization"
     )
-    genomen_model_config["geno_config"]["preprocessing_config"][
-        "feature_selection"
-    ].update(
+    genomen_model_config["geno_config"]["preprocessing_config"]["feature_selection"].update(
         {
             "method": wandb_config.feature_selection_method,
             "k": wandb_config.k_fs,
-            "score_func": "chi2"
-            if phenotype["classification"] and not use_resid
-            else "f_regression",
+            "score_func": (
+                "chi2" if phenotype["classification"] and not use_resid else "f_regression"
+            ),
         }
     )
 
@@ -139,9 +130,7 @@ def update_config_with_wandb_params(wandb_config, task_id):
     train_config.update(
         {
             "scorer": "rocauc" if phenotype["classification"] else "r2",
-            "backend": wandb_config.backend
-            if hasattr(wandb_config, "backend")
-            else "cpu",
+            "backend": wandb_config.backend if hasattr(wandb_config, "backend") else "cpu",
         }
     )
 
@@ -160,9 +149,7 @@ def update_config_with_wandb_params(wandb_config, task_id):
     return temp_file.name, phenotype_name
 
 
-def train(
-    task_id: int | None, model_type: str, project_name: str = "MetaPRS", **kwargs
-):
+def train(task_id: int | None, model_type: str, project_name: str = "MetaPRS", **kwargs):
     """Main training function for sweep.
 
     Parameters can come from either direct arguments or wandb.config
@@ -179,9 +166,7 @@ def train(
         task_id = int(task_id)
 
     # Log task_id and model_type
-    wandb.config.update(
-        {"task_id": task_id, "model_type": model_type}, allow_val_change=True
-    )
+    wandb.config.update({"task_id": task_id, "model_type": model_type}, allow_val_change=True)
 
     # Update config with wandb parameters and phenotype
     config_path, phenotype_name = update_config_with_wandb_params(wandb.config, task_id)
@@ -201,9 +186,7 @@ def train(
     # Initialize dataset
     logger.info("Initiating DataSet...")
     dataset = DataSet()
-    train_set, test_set, val_set = split(
-        dataset, split_by_col=("split", ("train", "test", "val"))
-    )
+    train_set, test_set, val_set = split(dataset, split_by_col=("split", ("train", "test", "val")))
 
     # Initialize model
     logger.info("Training model...")

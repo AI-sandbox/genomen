@@ -42,16 +42,10 @@ class CovarEstimator(WeakEstimator):
             y_logits = utils.get_logits(y, self.eps)
             resid = y_logits - preds_logits
             if self.residual_transformer is None:
-                self.residual_transformer = PowerTransformer(
-                    method="yeo-johnson", standardize=True
-                )
-                resid = self.residual_transformer.fit_transform(
-                    resid.reshape(-1, 1)
-                ).flatten()
+                self.residual_transformer = PowerTransformer(method="yeo-johnson", standardize=True)
+                resid = self.residual_transformer.fit_transform(resid.reshape(-1, 1)).flatten()
             else:
-                resid = self.residual_transformer.transform(
-                    resid.reshape(-1, 1)
-                ).flatten()
+                resid = self.residual_transformer.transform(resid.reshape(-1, 1)).flatten()
         else:
             resid = y - preds
 
@@ -67,9 +61,7 @@ class CovarEstimator(WeakEstimator):
         self.covar_keys = data_set.cfg.covar_config.covar_keys
 
         covar_data = data_set.get_covars()
-        cv_folds, oof_idxs = kfold(
-            covar_data, cv=cv, shuffle=False, return_oof_idxs=True
-        )
+        cv_folds, oof_idxs = kfold(covar_data, cv=cv, shuffle=False, return_oof_idxs=True)
 
         def fit_fold(
             model_cfg: ModelConfig, train_fold: DataBatch, test_fold: DataBatch

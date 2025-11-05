@@ -18,9 +18,7 @@ def main(cfg_path: str = "config.yml"):
 
     logger.info("Initiate data set...")
     dataset = DataSet()
-    train_set, test_set, val_set = split(
-        dataset, split_by_col=("split", ("train", "test", "val"))
-    )
+    train_set, test_set, val_set = split(dataset, split_by_col=("split", ("train", "test", "val")))
     print(f"Got {len(train_set)} samples in train set")
 
     logger.info("Train Model...")
@@ -59,20 +57,19 @@ def main(cfg_path: str = "config.yml"):
         logger.info("Computing local shap values for all cases")
         # train
         train_local_shap_df = model.geno_model.compute_local_shap(
-            train_set, 
-            sample_idxs=train_set.phenotype.sample_idxs[train_set.get_labels() == 1]
+            train_set, sample_idxs=train_set.phenotype.sample_idxs[train_set.get_labels() == 1]
         )
         # val
         val_local_shap_df = model.geno_model.compute_local_shap(
-            val_set, 
-            sample_idxs=val_set.phenotype.sample_idxs[val_set.get_labels() == 1]
+            val_set, sample_idxs=val_set.phenotype.sample_idxs[val_set.get_labels() == 1]
         )
         # test
         test_local_shap_df = model.geno_model.compute_local_shap(
-            test_set, 
-            sample_idxs=test_set.phenotype.sample_idxs[test_set.get_labels() == 1]
+            test_set, sample_idxs=test_set.phenotype.sample_idxs[test_set.get_labels() == 1]
         )
-        local_shap_df = pd.concat([train_local_shap_df, val_local_shap_df, test_local_shap_df], axis=0)
+        local_shap_df = pd.concat(
+            [train_local_shap_df, val_local_shap_df, test_local_shap_df], axis=0
+        )
 
         local_shap_path = f"local_shap_{train_set.cfg.phenotype_id}.parquet"
         logger.info(f"Saving local shap values to: {local_shap_path}")

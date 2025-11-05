@@ -7,9 +7,7 @@ import pandas as pd
 
 
 class GenoSet:
-    def __init__(
-        self, pgen_reader: Callable, annotation_df: pd.DataFrame, n_samples: int
-    ):
+    def __init__(self, pgen_reader: Callable, annotation_df: pd.DataFrame, n_samples: int):
         self.pgen_reader = pgen_reader
         self.annotation_df = annotation_df
         self.n_samples = n_samples
@@ -52,9 +50,7 @@ class GenoSet:
         return cls(pgen_reader, annotation_df, data["n_samples"])
 
     @classmethod
-    def from_plink(
-        cls, df: pd.DataFrame, pgen_reader: Callable, n_samples: int
-    ) -> "GenoSet":
+    def from_plink(cls, df: pd.DataFrame, pgen_reader: Callable, n_samples: int) -> "GenoSet":
         # build genotype annotation df
         df.rename(
             columns={
@@ -88,16 +84,12 @@ class GenoSet:
         sample_idxs, variant_idxs = key
 
         sample_idxs_array = np.asarray(sample_idxs)
-        has_duplicates = (
-            len(sample_idxs_array) != len(set(sample_idxs_array))
+        has_duplicates = len(sample_idxs_array) != len(
+            set(sample_idxs_array)
         )  # not expected, hence check (O(m)) + eventually run unique ((O(m log m))) > run unique ((O(m log m))) every time
         if has_duplicates:
-            unique_sample_idxs, inverse_indices = np.unique(
-                sample_idxs_array, return_inverse=True
-            )
-            unique_X = np.zeros(
-                (len(unique_sample_idxs), len(variant_idxs)), dtype=np.int8
-            )
+            unique_sample_idxs, inverse_indices = np.unique(sample_idxs_array, return_inverse=True)
+            unique_X = np.zeros((len(unique_sample_idxs), len(variant_idxs)), dtype=np.int8)
 
             reader = self.pgen_reader(sample_subset=unique_sample_idxs)
             reader.read_list(variant_idxs, unique_X, sample_maj=-1)

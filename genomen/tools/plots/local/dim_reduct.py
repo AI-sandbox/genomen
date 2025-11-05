@@ -15,9 +15,7 @@ from sklearn.preprocessing import StandardScaler
 
 from .. import utils
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -25,16 +23,16 @@ def plot_shap_embedding(
     local_df,
     phenotype_name: str,
     out_path: Path | str,
-    method: str = "umap",            # "umap" | "tsne" | "pca"
-    n_components: int = 2,           # 2 or 3
-    labels=None,                     # Optional 1D array-like of class/cluster labels (for coloring only)
-    standardize: bool = True,        # Standardize features before DR
-    pca_components: int = 50,        # PCA precompress for tsne/umap
+    method: str = "umap",  # "umap" | "tsne" | "pca"
+    n_components: int = 2,  # 2 or 3
+    labels=None,  # Optional 1D array-like of class/cluster labels (for coloring only)
+    standardize: bool = True,  # Standardize features before DR
+    pca_components: int = 50,  # PCA precompress for tsne/umap
     tsne_perplexity: float = 30.0,
     tsne_learning_rate: float = "auto",
     umap_n_neighbors: int = 15,
     umap_min_dist: float = 0.1,
-    metric: str = "euclidean",       # or "cosine" (often good for SHAP)
+    metric: str = "euclidean",  # or "cosine" (often good for SHAP)
     random_state: int = 42,
     figsize=(6, 5),
     # NEW: clustering controls
@@ -133,7 +131,9 @@ def plot_shap_embedding(
     if cluster_ids is not None:
         emb_df["cluster"] = cluster_ids
         # Optional: order rows by cluster then index (so samples are "sorted to a cluster")
-        emb_df = emb_df.sort_values(by=["cluster"] + ([] if n_components == 2 else []) + [], kind="mergesort")
+        emb_df = emb_df.sort_values(
+            by=["cluster"] + ([] if n_components == 2 else []) + [], kind="mergesort"
+        )
         # mergesort keeps a stable order within clusters
 
     # ---- Plot
@@ -147,10 +147,14 @@ def plot_shap_embedding(
             # Plot clustered points
             for cid in sorted(clusters.dropna().unique()):
                 m = clusters == cid
-                ax.scatter(emb_df.loc[m, "x"], emb_df.loc[m, "y"], s=12, label=f"cluster {int(cid)}")
+                ax.scatter(
+                    emb_df.loc[m, "x"], emb_df.loc[m, "y"], s=12, label=f"cluster {int(cid)}"
+                )
             # Plot noise (if any)
             if mask_noise.any():
-                ax.scatter(emb_df.loc[mask_noise, "x"], emb_df.loc[mask_noise, "y"], s=12, label="noise")
+                ax.scatter(
+                    emb_df.loc[mask_noise, "x"], emb_df.loc[mask_noise, "y"], s=12, label="noise"
+                )
         else:
             # Fallback coloring with provided labels (if any)
             if labels is None:
@@ -160,22 +164,36 @@ def plot_shap_embedding(
                 for lab in np.unique(labs):
                     m = labs == lab
                     ax.scatter(emb_df.iloc[m, 0], emb_df.iloc[m, 1], s=12, label=str(lab))
-        ax.set_xlabel("Dim 1"); ax.set_ylabel("Dim 2")
+        ax.set_xlabel("Dim 1")
+        ax.set_ylabel("Dim 2")
         ttl = f"{method.upper()} of local shap values for phenotype {phenotype_name}"
         ax.set_title(ttl)
         if (cluster_ids is not None) or (labels is not None):
             ax.legend(title="Group", frameon=False)
     else:
         from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+
         ax = fig.add_subplot(111, projection="3d")
         if cluster_ids is not None:
             clusters = pd.Series(emb_df["cluster"], index=emb_df.index)
             mask_noise = clusters.isna()
             for cid in sorted(clusters.dropna().unique()):
                 m = clusters == cid
-                ax.scatter(emb_df.loc[m, "x"], emb_df.loc[m, "y"], emb_df.loc[m, "z"], s=12, label=f"cluster {int(cid)}")
+                ax.scatter(
+                    emb_df.loc[m, "x"],
+                    emb_df.loc[m, "y"],
+                    emb_df.loc[m, "z"],
+                    s=12,
+                    label=f"cluster {int(cid)}",
+                )
             if mask_noise.any():
-                ax.scatter(emb_df.loc[mask_noise, "x"], emb_df.loc[mask_noise, "y"], emb_df.loc[mask_noise, "z"], s=12, label="noise")
+                ax.scatter(
+                    emb_df.loc[mask_noise, "x"],
+                    emb_df.loc[mask_noise, "y"],
+                    emb_df.loc[mask_noise, "z"],
+                    s=12,
+                    label="noise",
+                )
         else:
             if labels is None:
                 ax.scatter(emb_df["x"], emb_df["y"], emb_df["z"], s=12)
@@ -183,8 +201,16 @@ def plot_shap_embedding(
                 labs = np.asarray(labels)
                 for lab in np.unique(labs):
                     m = labs == lab
-                    ax.scatter(emb_df.iloc[m, 0], emb_df.iloc[m, 1], emb_df.iloc[m, 2], s=12, label=str(lab))
-        ax.set_xlabel("Dim 1"); ax.set_ylabel("Dim 2"); ax.set_zlabel("Dim 3")
+                    ax.scatter(
+                        emb_df.iloc[m, 0],
+                        emb_df.iloc[m, 1],
+                        emb_df.iloc[m, 2],
+                        s=12,
+                        label=str(lab),
+                    )
+        ax.set_xlabel("Dim 1")
+        ax.set_ylabel("Dim 2")
+        ax.set_zlabel("Dim 3")
         ttl = f"SHAP {method.upper()} embedding (3D)"
         ttl += " + clustering" if cluster_ids is not None else ""
         ax.set_title(ttl)
@@ -195,9 +221,10 @@ def plot_shap_embedding(
     fig.savefig(out_path)
     return emb_df
 
+
 def plot_gwas_from_local_shap(
-    local_shap_df: pd.DataFrame,         # rows: sample_idx ; cols: variant_idx
-    clusters: List[Sequence[int]],       # list of arrays/lists of sample_idx (one per cluster)
+    local_shap_df: pd.DataFrame,  # rows: sample_idx ; cols: variant_idx
+    clusters: List[Sequence[int]],  # list of arrays/lists of sample_idx (one per cluster)
     annotation_df: pd.DataFrame,
     out_path: Path | str,
     *,
@@ -210,12 +237,12 @@ def plot_gwas_from_local_shap(
     point_size: float = 6,
     alpha: float = 0.7,
     colors: Optional[Sequence[str]] = None,
-    only_chr: Optional[Union[str, int]] = None,   # if provided, plot a single chromosome
+    only_chr: Optional[Union[str, int]] = None,  # if provided, plot a single chromosome
     # --- NEW ---
     annotate: bool = False,
     top_k: int = 10,
-    label_col: Optional[str] = "snp",              # e.g., "snp" in annotation_df
-    max_labels_per_chr: int = 5,                  # soft cap per chromosome for GW-wide mode
+    label_col: Optional[str] = "snp",  # e.g., "snp" in annotation_df
+    max_labels_per_chr: int = 5,  # soft cap per chromosome for GW-wide mode
 ):
     """
     Overlay multiple GWAS (mean SHAP per cluster) in one plot.
@@ -233,7 +260,10 @@ def plot_gwas_from_local_shap(
         raise ValueError(f"annotation_df missing columns: {sorted(missing)}")
 
     # Work on a copy
-    ann = annotation_df[[chr_col, pos_col] + ([label_col] if label_col and label_col in annotation_df.columns else [])].copy()
+    ann = annotation_df[
+        [chr_col, pos_col]
+        + ([label_col] if label_col and label_col in annotation_df.columns else [])
+    ].copy()
 
     # --- Align variants between SHAP columns and annotation index
     shap_cols = pd.Index(local_shap_df.columns)
@@ -264,9 +294,12 @@ def plot_gwas_from_local_shap(
     def _norm_chr(x):
         s = str(x).strip()
         s = re.sub(r"^chr", "", s, flags=re.IGNORECASE).upper()
-        if s == "23": s = "X"
-        elif s == "24": s = "Y"
-        elif s in {"M", "MT", "MITO"}: s = "MT"
+        if s == "23":
+            s = "X"
+        elif s == "24":
+            s = "Y"
+        elif s in {"M", "MT", "MITO"}:
+            s = "MT"
         return s
 
     ann["_chr"] = ann[chr_col].map(_norm_chr)
@@ -282,9 +315,12 @@ def plot_gwas_from_local_shap(
     ann = ann.dropna(subset=[pos_col, "_chr"])
 
     def _order_key(s):
-        if s == "X": return 23
-        if s == "Y": return 24
-        if s == "MT": return 25
+        if s == "X":
+            return 23
+        if s == "Y":
+            return 24
+        if s == "MT":
+            return 25
         try:
             return int(s)
         except Exception:
@@ -317,7 +353,10 @@ def plot_gwas_from_local_shap(
             cluster_means[label] = m.reindex(variant_order)
 
     # ---- Build plotting frame
-    d = ann[["_chr", "_chr_order", pos_col] + ([label_col] if label_col and label_col in ann.columns else [])].copy()
+    d = ann[
+        ["_chr", "_chr_order", pos_col]
+        + ([label_col] if label_col and label_col in ann.columns else [])
+    ].copy()
     d.index.name = "variant_idx"
 
     # x-axis
@@ -349,8 +388,13 @@ def plot_gwas_from_local_shap(
         if dd.empty:
             continue
         ax.scatter(
-            dd["_x"], dd["y"],
-            s=point_size, alpha=alpha, linewidths=0, color=color_map[label], label=label
+            dd["_x"],
+            dd["y"],
+            s=point_size,
+            alpha=alpha,
+            linewidths=0,
+            color=color_map[label],
+            label=label,
         )
 
     ax.set_title(title)
@@ -364,10 +408,16 @@ def plot_gwas_from_local_shap(
     else:
         chr_unique = pd.Index(d["_chr"]).drop_duplicates().tolist()
         grp = d.groupby("_chr")["_x"]
-        tick_pos = {chrom: int((grp.min().loc[chrom] + grp.max().loc[chrom]) / 2) for chrom in chr_unique}
+        tick_pos = {
+            chrom: int((grp.min().loc[chrom] + grp.max().loc[chrom]) / 2) for chrom in chr_unique
+        }
 
         def _label(s):
-            return "X" if s in ("23", "X") else ("Y" if s in ("24", "Y") else ("MT" if s in ("25","MT") else str(s)))
+            return (
+                "X"
+                if s in ("23", "X")
+                else ("Y" if s in ("24", "Y") else ("MT" if s in ("25", "MT") else str(s)))
+            )
 
         ax.set_xlabel("Chromosome")
         ax.set_xticks([tick_pos[c] for c in chr_unique])
@@ -383,7 +433,9 @@ def plot_gwas_from_local_shap(
     # ---------- NEW: Annotation of top variants by between-cluster difference ----------
     if annotate and len(cluster_means) >= 2:
         # Build matrix: rows = variant_idx in plotting order; cols = clusters
-        Y = pd.DataFrame({lbl: pd.to_numeric(cluster_means[lbl], errors="coerce") for lbl in cluster_labels})
+        Y = pd.DataFrame(
+            {lbl: pd.to_numeric(cluster_means[lbl], errors="coerce") for lbl in cluster_labels}
+        )
         Y = Y.loc[variant_order]  # ensure plotting order
         # Compute range across clusters per variant (handles NaNs by skipping them)
         diff = Y.max(axis=1, skipna=True) - Y.min(axis=1, skipna=True)
@@ -393,13 +445,20 @@ def plot_gwas_from_local_shap(
         top_variants = diff.nlargest(top_k)
         if not top_variants.empty:
             # For each selected variant, choose the cluster giving the extreme value for anchor point
-            y_range = (pd.concat([Y.min(axis=1), Y.max(axis=1)]).max() -
-                       pd.concat([Y.min(axis=1), Y.max(axis=1)]).min())
+            y_range = (
+                pd.concat([Y.min(axis=1), Y.max(axis=1)]).max()
+                - pd.concat([Y.min(axis=1), Y.max(axis=1)]).min()
+            )
             y_range = float(y_range) if np.isfinite(y_range) and y_range != 0 else 1.0
 
             # Offsets to help reduce label collisions
-            x_offsets = np.array([0.0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8, 2.4, -2.4, 3.0])  # in millions of bp (approx)
-            y_offsets = np.array([0.18, -0.22, 0.24, -0.20, 0.16, -0.26, 0.28, -0.18, 0.22, -0.24]) * y_range
+            x_offsets = np.array(
+                [0.0, 0.6, -0.6, 1.2, -1.2, 1.8, -1.8, 2.4, -2.4, 3.0]
+            )  # in millions of bp (approx)
+            y_offsets = (
+                np.array([0.18, -0.22, 0.24, -0.20, 0.16, -0.26, 0.28, -0.18, 0.22, -0.24])
+                * y_range
+            )
 
             # Prepare label strings
             if label_col and label_col in d.columns:
@@ -464,7 +523,7 @@ def main(
     plot_manhattan_diff: bool = False,
     annotate: bool = False,
     n_clusters: int = 2,
-    **kwargs
+    **kwargs,
 ):
     if isinstance(task_ids, int):
         task_ids = [task_ids]
@@ -481,16 +540,19 @@ def main(
         annotation_data_dir = Path(annotation_data_dir)
         if not annotation_data_dir.exists():
             raise ValueError("Provided annotation_data_dir does not exist.")
-        
 
     for task_id in task_ids:
         phenotype_name, phenotype_id = utils.setup(task_id)
-        logger.info(f"Plotting local shap values for phenotype {phenotype_name} ({phenotype_id})...")
+        logger.info(
+            f"Plotting local shap values for phenotype {phenotype_name} ({phenotype_id})..."
+        )
 
         phenotype_input_path = local_data_dir / f"local_shap_{phenotype_id}.parquet"
         if not phenotype_input_path.is_file():
-            logger.warning(f"Could not find local shap file for phenotype {phenotype_name}. Skipping...")
-            continue   
+            logger.warning(
+                f"Could not find local shap file for phenotype {phenotype_name}. Skipping..."
+            )
+            continue
         reduc_output_path = plot_path / f"local_shap_reduc_plot_{method}_{phenotype_name}.png"
 
         local_shap_df = pd.read_parquet(phenotype_input_path)
@@ -511,10 +573,14 @@ def main(
             continue
 
         if plot_manhattan_diff:
-            phenotype_annotation_path = annotation_data_dir / f"{phenotype_name}_annotation_df.parquet"
+            phenotype_annotation_path = (
+                annotation_data_dir / f"{phenotype_name}_annotation_df.parquet"
+            )
             if not phenotype_annotation_path.is_file():
-                logger.warning(f"Could not find annotation file for phenotype {phenotype_name}. Skipping...")
-                continue    
+                logger.warning(
+                    f"Could not find annotation file for phenotype {phenotype_name}. Skipping..."
+                )
+                continue
             else:
                 annotation_df = pd.read_parquet(phenotype_annotation_path)
 
@@ -525,15 +591,15 @@ def main(
                 local_cluster_idxs = local_cluster_df.index.values
                 cluster_idxs.append(local_cluster_idxs)
 
-            manhattan_output_path = plot_path / f"local_shap_manhattan_plot_{method}_{phenotype_name}.png"
+            manhattan_output_path = (
+                plot_path / f"local_shap_manhattan_plot_{method}_{phenotype_name}.png"
+            )
             plot_gwas_from_local_shap(
-                local_shap_df,
-                cluster_idxs,
-                annotation_df,
-                manhattan_output_path,
-                annotate=annotate
-            )   
-            logger.info(f"Manhattan diff. plot done. Plot can be found under {manhattan_output_path}.")
+                local_shap_df, cluster_idxs, annotation_df, manhattan_output_path, annotate=annotate
+            )
+            logger.info(
+                f"Manhattan diff. plot done. Plot can be found under {manhattan_output_path}."
+            )
 
 
 if __name__ == "__main__":

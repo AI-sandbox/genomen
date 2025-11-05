@@ -205,5 +205,5 @@ PHENOTYPES = {
     "cystic_kidney_disease": phenotype_cystic_kidney_disease,
     "unspecified_contracted_kidney": phenotype_unspecified_contracted_kidney,
     "kidney_failure": phenotype_kidney_failure,
-    "kidney_cell_cancer": phenotype_kidney_cell_cancer
+    "kidney_cell_cancer": phenotype_kidney_cell_cancer,
 }

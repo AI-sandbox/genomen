@@ -22,6 +22,7 @@ def safe_inv_transform(transformer, x):
 
     return out
 
+
 def safe_nanmean(X, axis=0, fill_value=0.0):
     X = np.asarray(X)
     nan_mask = ~np.isnan(X)

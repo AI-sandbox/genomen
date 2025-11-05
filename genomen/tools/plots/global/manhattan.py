@@ -41,15 +41,19 @@ def plot_gwas_from_df(
     show_every: int = 1,
 ):
     """Plot a Manhattan-style scatter of per-variant SHAP values, optionally annotated."""
-    d = df[[chr_col, pos_col, y_col] + ([snp_col] if snp_col and snp_col in df.columns else [])].copy()
+    d = df[
+        [chr_col, pos_col, y_col] + ([snp_col] if snp_col and snp_col in df.columns else [])
+    ].copy()
     title = f"Manhattan plot of SHAP values for phenotype {phenotype}"
 
     # --- Normalize chromosomes
     def _norm_chr(x):
         s = str(x).strip()
         s = re.sub(r"^chr", "", s, flags=re.IGNORECASE).upper()
-        if s == "23": s = "X"
-        elif s == "24": s = "Y"
+        if s == "23":
+            s = "X"
+        elif s == "24":
+            s = "Y"
         return s
 
     d["_chr"] = d[chr_col].map(_norm_chr)
@@ -58,11 +62,16 @@ def plot_gwas_from_df(
 
     # --- Sort chromosomes
     def _order_key(s):
-        if s == "X": return 23
-        if s == "Y": return 24
-        if s in {"MT", "M"}: return 25
-        try: return int(s)
-        except Exception: return np.nan
+        if s == "X":
+            return 23
+        if s == "Y":
+            return 24
+        if s in {"MT", "M"}:
+            return 25
+        try:
+            return int(s)
+        except Exception:
+            return np.nan
 
     d["_chr_order"] = d["_chr"].map(_order_key)
     d[pos_col] = pd.to_numeric(d[pos_col], errors="coerce")
@@ -90,7 +99,9 @@ def plot_gwas_from_df(
 
     # --- Plot base Manhattan points
     grp = d.groupby("_chr", sort=False)["_x"]
-    tick_pos = {chrom: int((grp.min().loc[chrom] + grp.max().loc[chrom]) / 2) for chrom in chr_unique}
+    tick_pos = {
+        chrom: int((grp.min().loc[chrom] + grp.max().loc[chrom]) / 2) for chrom in chr_unique
+    }
     if colors is None:
         colors = list(plt.cm.tab20.colors)
     cmap = {chrom: colors[i % len(colors)] for i, chrom in enumerate(chr_unique)}
@@ -98,7 +109,15 @@ def plot_gwas_from_df(
     fig, ax = plt.subplots(figsize=figsize)
     for chrom in chr_unique:
         sel = d["_chr"] == chrom
-        ax.scatter(d.loc[sel, "_x"], d.loc[sel, y_col], s=point_size, alpha=alpha, color=cmap[chrom], linewidths=0, rasterized=True)
+        ax.scatter(
+            d.loc[sel, "_x"],
+            d.loc[sel, y_col],
+            s=point_size,
+            alpha=alpha,
+            color=cmap[chrom],
+            linewidths=0,
+            rasterized=True,
+        )
 
     # --- Labels and axes
     if show_title:
@@ -248,13 +267,20 @@ def main(
 
         # Compose filename suffix for clarity
         suffix_parts = []
-        if abs_values: suffix_parts.append("abs")
-        if log_scale: suffix_parts.append("log")
-        if annotate_top: suffix_parts.append(f"ann{top_k}")
-        if only_chr is not None: suffix_parts.append(f"chr{only_chr}")
-        if show_every > 1: suffix_parts.append(f"xevery{show_every}")
-        if label_size is not None: suffix_parts.append(f"lab{int(label_size)}")
-        if no_title: suffix_parts.append("notitle")
+        if abs_values:
+            suffix_parts.append("abs")
+        if log_scale:
+            suffix_parts.append("log")
+        if annotate_top:
+            suffix_parts.append(f"ann{top_k}")
+        if only_chr is not None:
+            suffix_parts.append(f"chr{only_chr}")
+        if show_every > 1:
+            suffix_parts.append(f"xevery{show_every}")
+        if label_size is not None:
+            suffix_parts.append(f"lab{int(label_size)}")
+        if no_title:
+            suffix_parts.append("notitle")
         suffix_str = ("_" + "_".join(suffix_parts)) if suffix_parts else ""
 
         out_base = out_dir / f"{phenotype_name}{suffix_str}"

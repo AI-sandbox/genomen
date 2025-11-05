@@ -116,16 +116,21 @@ def plot_gwas_with_interactions(
     d["_chr_order"] = d["_chr"].map(_order_key)
     d[pos_col] = pd.to_numeric(d[pos_col], errors="coerce")
     d[y_col] = pd.to_numeric(d[y_col], errors="coerce")
-    d = d.dropna(subset=["_chr_order", pos_col, y_col]).sort_values(
-        by=["_chr_order", pos_col]
-    )
+    d = d.dropna(subset=["_chr_order", pos_col, y_col]).sort_values(by=["_chr_order", pos_col])
 
     # If no data after filtering, warn and return
     if d.empty:
         warnings.warn("No GWAS points to plot after filtering/cleaning.")
         fig, ax = plt.subplots(figsize=figsize)
         ax.text(0.5, 0.5, "No data", ha="center", va="center")
-        return {"fig": fig, "ax_top": ax, "ax_tris": {}, "chrom_order": [], "chrom_offsets": {}, "chrom_lengths": {}}
+        return {
+            "fig": fig,
+            "ax_top": ax,
+            "ax_tris": {},
+            "chrom_order": [],
+            "chrom_offsets": {},
+            "chrom_lengths": {},
+        }
 
     # Chromosomes in order
     chr_unique = pd.Index(d["_chr"]).drop_duplicates().tolist()
@@ -146,8 +151,7 @@ def plot_gwas_with_interactions(
     # Tick positions at midpoints
     grp = d.groupby("_chr", sort=False)["_x"]
     tick_pos = {
-        chrom: int((grp.min().loc[chrom] + grp.max().loc[chrom]) / 2)
-        for chrom in chr_unique
+        chrom: int((grp.min().loc[chrom] + grp.max().loc[chrom]) / 2) for chrom in chr_unique
     }
 
     # ----------------------------
@@ -186,9 +190,7 @@ def plot_gwas_with_interactions(
     # Bottom row split into N vertical panels with width proportional to chr length
     # ----------------------------
     fig = plt.figure(figsize=figsize)
-    gs = gridspec.GridSpec(
-        2, 1, height_ratios=height_ratios, hspace=0.12, figure=fig
-    )
+    gs = gridspec.GridSpec(2, 1, height_ratios=height_ratios, hspace=0.12, figure=fig)
 
     ax_top = fig.add_subplot(gs[0, 0])
 
@@ -201,16 +203,22 @@ def plot_gwas_with_interactions(
     for chrom in chr_unique:
         sel = d["_chr"] == chrom
         ax_top.scatter(
-            d.loc[sel, "_x"], d.loc[sel, y_col],
-            s=point_size, alpha=alpha, color=cmap_chr[chrom], linewidths=0
+            d.loc[sel, "_x"],
+            d.loc[sel, y_col],
+            s=point_size,
+            alpha=alpha,
+            color=cmap_chr[chrom],
+            linewidths=0,
         )
 
     # Axes styling
     ax_top.set_title(f"Global SHAP GWAS + Interactions for {phenotype}")
     ax_top.set_ylabel(y_label)
+
     # explicit ticks/labels
     def _label(s):
         return "X" if s in ("23", "X") else ("Y" if s in ("24", "Y") else str(s))
+
     ax_top.set_xticks([tick_pos[c] for c in chr_unique])
     ax_top.set_xticklabels([_label(c) for c in chr_unique])
 
@@ -228,7 +236,9 @@ def plot_gwas_with_interactions(
     # ----------------------------
     # create a nested GridSpec from the bottom cell, with width ratios ~ chromosome lengths + gaps
     bottom_gs = gridspec.GridSpecFromSubplotSpec(
-        1, len(chr_unique), subplot_spec=gs[1, 0],
+        1,
+        len(chr_unique),
+        subplot_spec=gs[1, 0],
         wspace=0.02,
         width_ratios=[max(int(chr_max_pos.loc[c]), 1) for c in chr_unique],
     )
@@ -294,9 +304,13 @@ def plot_gwas_with_interactions(
         ii, jj, vv = [], [], []
         for a, b, v in zip(i_idx, j_idx, vals):
             if a <= b:
-                ii.append(a); jj.append(b); vv.append(v)
+                ii.append(a)
+                jj.append(b)
+                vv.append(v)
             else:
-                ii.append(b); jj.append(a); vv.append(v)
+                ii.append(b)
+                jj.append(a)
+                vv.append(v)
         M[np.array(ii), np.array(jj)] = vv
 
         M_plot = M.astype(float)
@@ -310,9 +324,12 @@ def plot_gwas_with_interactions(
         Y = (J - I) / 2.0
 
         im = ax.pcolormesh(
-            X, Y, M_plot,
-            cmap=cmap, norm=norm,
-            shading="flat",          # <-- use 'flat' for corner grids
+            X,
+            Y,
+            M_plot,
+            cmap=cmap,
+            norm=norm,
+            shading="flat",  # <-- use 'flat' for corner grids
             edgecolors="none",
             rasterized=True,
         )
@@ -321,8 +338,9 @@ def plot_gwas_with_interactions(
             mappable_for_cbar = im
 
         ax.set_aspect("equal")
-        ax.set_xticks([]); ax.set_yticks([])
-        ax.invert_yaxis() 
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.invert_yaxis()
         for spine in ax.spines.values():
             spine.set_visible(False)
 
@@ -348,6 +366,7 @@ def plot_gwas_with_interactions(
         "chrom_lengths": chr_max_pos.fillna(0).to_dict(),
     }
 
+
 def main(
     data_dir: Path | str,
     task_ids: List[int] | int = list(range(1, 21)),
@@ -368,20 +387,22 @@ def main(
     if isinstance(task_ids, int):
         task_ids = [task_ids]
 
-    data_dir = Path(data_dir)    
+    data_dir = Path(data_dir)
     if not data_dir.exists():
         raise ValueError("Provided data dir does not exist.")
 
     for task_id in task_ids:
         phenotype_name, phenotype_id = utils.setup(task_id)
-        logger.info(f"Plotting global shap values for phenotype {phenotype_name} ({phenotype_id})...")
+        logger.info(
+            f"Plotting global shap values for phenotype {phenotype_name} ({phenotype_id})..."
+        )
 
         annotation_path = data_dir / f"{phenotype_name}_annotation_df.parquet"
         interactions_path = data_dir / f"{phenotype_name}_interactions.parquet"
 
         if not annotation_path.is_file():
             logger.warning(f"Could not find annotation file for phenotype {phenotype_name}")
-            continue    
+            continue
         elif not interactions_path.is_file():
             logger.warning(f"Could not find interactions file for phenotype {phenotype_name}")
             continue
@@ -390,17 +411,14 @@ def main(
             annotation_df = pd.read_parquet(annotation_path)
             interaction_df = pd.read_parquet(interactions_path)
 
-        result = plot_gwas_with_interactions(
-            annotation_df,
-            interaction_df,
-            phenotype_name
-        )
-        
+        result = plot_gwas_with_interactions(annotation_df, interaction_df, phenotype_name)
+
         out_dir = data_dir / "plots" / "manhattan_with_ld"
         out_dir.mkdir(parents=True, exist_ok=True)
         out_plot_path = out_dir / f"{phenotype_name}.png"
         logger.info(f"Saving plot for phenotype {phenotype_name} to {out_plot_path}")
         result["fig"].savefig(out_plot_path, bbox_inches="tight", dpi=200)
+
 
 if __name__ == "__main__":
     Fire(main)

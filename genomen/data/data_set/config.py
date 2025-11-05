@@ -63,9 +63,7 @@ class CovarConfig:
             "Global_PC9",
             "Global_PC10",
         ],
-        metadata={
-            "help": "List of covar keys to use. Keys must be present in master file"
-        },
+        metadata={"help": "List of covar keys to use. Keys must be present in master file"},
     )
 
 
@@ -92,35 +90,35 @@ class SampleSamplingConfig:
         },
     )
 
+
 @dataclass
 class LDSamplingConfig:
     prune_kb: int = field(
         default=250,
-        metadata={"help": "Window size in kilobases for LD pruning (--indep-pairwise window size)."}
+        metadata={
+            "help": "Window size in kilobases for LD pruning (--indep-pairwise window size)."
+        },
     )
     prune_step: int = field(
         default=50,
-        metadata={"help": "Step size in SNPs for LD pruning (--indep-pairwise step size)."}
+        metadata={"help": "Step size in SNPs for LD pruning (--indep-pairwise step size)."},
     )
     prune_r2: float = field(
         default=0.1,
-        metadata={"help": "r^2 threshold for LD pruning (--indep-pairwise r^2 threshold)."}
+        metadata={"help": "r^2 threshold for LD pruning (--indep-pairwise r^2 threshold)."},
     )
     tau: float = field(
-        default=0.1,
-        metadata={"help": "Minimum r^2 threshold for assigning SNPs to LD blocks."}
+        default=0.1, metadata={"help": "Minimum r^2 threshold for assigning SNPs to LD blocks."}
     )
     ld_window_kb: int = field(
         default=1000,
-        metadata={"help": "Window size in kilobases for LD calculation (--ld-window-kb)."}
+        metadata={"help": "Window size in kilobases for LD calculation (--ld-window-kb)."},
     )
     ld_window: int = field(
-        default=50000,
-        metadata={"help": "Maximum number of SNPs in LD window (--ld-window)."}
+        default=50000, metadata={"help": "Maximum number of SNPs in LD window (--ld-window)."}
     )
     max_score: float = field(
-        default=10.0,
-        metadata={"help": "Maximum number of SNPs in LD window (--ld-window)."}
+        default=10.0, metadata={"help": "Maximum number of SNPs in LD window (--ld-window)."}
     )
     eps: float = field(
         default=0.0,
@@ -136,17 +134,17 @@ class LDSamplingConfig:
     )
     temp: float = field(
         default=1.0,
-        metadata={"help": "Temperature used for softmax to create categorical probability distribution over variants."},
+        metadata={
+            "help": "Temperature used for softmax to create categorical probability distribution over variants."
+        },
     )
 
 
 @dataclass
 class VariantSamplingConfig:
-    strat: Literal["random", "chromosome", "window", "LD", "GWAS"] = (
-        field(
-            default="random",
-            metadata={"help": "Strategy used for sampling features from the data."},
-        )
+    strat: Literal["random", "chromosome", "window", "LD", "GWAS"] = field(
+        default="random",
+        metadata={"help": "Strategy used for sampling features from the data."},
     )
     max_features: int = field(
         default=10_000,
@@ -164,7 +162,7 @@ class VariantSamplingConfig:
     )
     ld_config: LDSamplingConfig = field(
         default_factory=LDSamplingConfig,
-        metadata={"help": "Dataclass encompassing hyperparameters for LD sampling"}
+        metadata={"help": "Dataclass encompassing hyperparameters for LD sampling"},
     )
     blocks_max_kb: int = field(
         default=400,
@@ -181,22 +179,16 @@ class VariantSamplingConfig:
     # Helper, will be filled automatically
     stride: int | None = field(
         default=None,
-        metadata={
-            "help": "Stride used for window sampling. Will be computed automatically."
-        },
+        metadata={"help": "Stride used for window sampling. Will be computed automatically."},
     )
 
 
 @dataclass
 class DataSetConfig(BaseConfig):
     phenotype_id: str = field(
-        metadata={
-            "help": "ID of the phenotype to analyze. Must be column in 'master' file."
-        }
+        metadata={"help": "ID of the phenotype to analyze. Must be column in 'master' file."}
     )
-    classification: bool = field(
-        metadata={"help": "Whether phenotype is binary or continuous"}
-    )
+    classification: bool = field(metadata={"help": "Whether phenotype is binary or continuous"})
     file_format: Literal["plink"] = field(
         default="plink",
         metadata={"help": "File format of input. Only accepts 'plink' for now."},
@@ -216,15 +208,11 @@ class DataSetConfig(BaseConfig):
     )
     sex: Literal["m", "w"] | None = field(
         default=None,
-        metadata={
-            "help": "Wether to filter for a specific sex. If None, no filter is set."
-        }
+        metadata={"help": "Wether to filter for a specific sex. If None, no filter is set."},
     )
     sex: Literal["m", "w"] | None = field(
         default=None,
-        metadata={
-            "help": "Wether to filter for a specific sex. If None, no filter is set."
-        }
+        metadata={"help": "Wether to filter for a specific sex. If None, no filter is set."},
     )
     covar_config: CovarConfig = field(
         default_factory=CovarConfig, metadata={"help": "Covar configuration"}

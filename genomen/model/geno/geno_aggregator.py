@@ -45,9 +45,7 @@ class GenoAggregator:
                 elif self.scorer == "r2":
                     threshold = 0.0
                 else:
-                    raise ValueError(
-                        f"Scoer {self.scorer} not supported for 'positive' filter!"
-                    )
+                    raise ValueError(f"Scoer {self.scorer} not supported for 'positive' filter!")
                 filter_mask = self.agg_scores >= threshold
             case "geq-average":
                 threshold = np.mean(self.agg_scores)
@@ -57,9 +55,7 @@ class GenoAggregator:
                 filter_mask = self.agg_scores >= threshold
 
         if not np.any(filter_mask):
-            self._logger.warning(
-                "No models passed the filtering criteria. Skipping filtering..."
-            )
+            self._logger.warning("No models passed the filtering criteria. Skipping filtering...")
             filter_mask = np.full(len(self.agg_scores), True, dtype=bool)
 
         self.filter_mask = filter_mask
@@ -75,33 +71,33 @@ class GenoAggregator:
         self.agg_weights[self.filter_mask] = utils.safe_softmax(filtered_agg_scores, self.cfg.temp)
 
     def _to2D(self, values: List[npt.NDArray] | npt.NDArray) -> npt.NDArray:
-        X = np.asarray(values) # (n_est, n_values)
+        X = np.asarray(values)  # (n_est, n_values)
         if X.ndim == 1:
-            X = X.reshape(-1, 1) # (n_est, 1)
+            X = X.reshape(-1, 1)  # (n_est, 1)
 
         return X
 
-    def _identity(
-        self,
-        values: List[npt.NDArray] | npt.NDArray,
-        **kwargs
-    ):
+    def _identity(self, values: List[npt.NDArray] | npt.NDArray, **kwargs):
         """Identity aggregation - returns the first (and presumably only) value."""
         if isinstance(values, list):
             if len(values) != 1:
-                raise ValueError(f"Identity aggregation expects exactly 1 estimator, got {len(values)}")
+                raise ValueError(
+                    f"Identity aggregation expects exactly 1 estimator, got {len(values)}"
+                )
             return values[0]
         else:
             # For 2D array input, return the first row
             if values.shape[0] != 1:
-                raise ValueError(f"Identity aggregation expects exactly 1 estimator, got {values.shape[0]}")
+                raise ValueError(
+                    f"Identity aggregation expects exactly 1 estimator, got {values.shape[0]}"
+                )
             return values[0]
 
     def _simple_mean(
         self,
         values: List[npt.NDArray] | npt.NDArray,
         filter_mask: npt.NDArray | None = None,
-        **kwargs
+        **kwargs,
     ):
         X = self._to2D(values)
 
@@ -121,18 +117,20 @@ class GenoAggregator:
         if filter_mask is not None:
             X = X[filter_mask]
 
-        if aggregate_coeffs: # not supported
-            raise ValueError("Cannot aggregate coefficients with rank mean! Use different aggregation strategy.")
+        if aggregate_coeffs:  # not supported
+            raise ValueError(
+                "Cannot aggregate coefficients with rank mean! Use different aggregation strategy."
+            )
 
-        ranks = pd.DataFrame(X).rank(axis=0, method="average").to_numpy() # (n_est, n_values)
-        return ranks.mean(axis=0) # (n_values,)
+        ranks = pd.DataFrame(X).rank(axis=0, method="average").to_numpy()  # (n_est, n_values)
+        return ranks.mean(axis=0)  # (n_values,)
 
     def _loss_weighted_avg(
         self,
         values: List[npt.NDArray] | npt.NDArray,
         weights: npt.NDArray,
         filter_mask: npt.NDArray | None = None,
-        **kwargs
+        **kwargs,
     ):
         X = self._to2D(values)
 
@@ -142,13 +140,13 @@ class GenoAggregator:
         else:
             w = weights
 
-        nan_mask = ~np.isnan(X) 
-        X_imputed = np.nan_to_num(X, nan=0.0) 
-        num = (X_imputed * w[:, None]).sum(axis=0) 
-        denom = (nan_mask * w[:, None]).sum(axis=0) 
+        nan_mask = ~np.isnan(X)
+        X_imputed = np.nan_to_num(X, nan=0.0)
+        num = (X_imputed * w[:, None]).sum(axis=0)
+        denom = (nan_mask * w[:, None]).sum(axis=0)
         denom = np.where(denom == 0.0, 1.0, denom)
 
-        return num / denom # (n_values,)
+        return num / denom  # (n_values,)
 
     def _stack(
         self,
@@ -162,7 +160,7 @@ class GenoAggregator:
 
         if aggregate_coeffs:
             coeffs = X[filter_mask] if filter_mask is not None else X
-            w = stacking_model.model.coef_.ravel() # (n_est,)
+            w = stacking_model.model.coef_.ravel()  # (n_est,)
             w = w[: coeffs.shape[0]]
 
             return np.tensordot(coeffs.T, w, axes=(1, 0))
@@ -172,7 +170,7 @@ class GenoAggregator:
         if self.cfg.classification:
             X = utils.get_logits(X, self.eps)
 
-        return stacking_model.predict(X.T) # (n_values,)
+        return stacking_model.predict(X.T)  # (n_values,)
 
     def calibrate(
         self,
@@ -195,18 +193,14 @@ class GenoAggregator:
 
         match self.cfg.agg_strat:
             case "mean":
-                self._aggregation_fn = partial(
-                    self._simple_mean, filter_mask=self.filter_mask
-                )
+                self._aggregation_fn = partial(self._simple_mean, filter_mask=self.filter_mask)
             case "rank-mean":
                 if not self.cfg.classification:
                     raise ValueError(
                         f"Aggregation strat {self.cfg.agg_strat} is not available for regression data!"
                     )
 
-                self._aggregation_fn = partial(
-                    self._rank_mean, filter_mask=self.filter_mask
-                )
+                self._aggregation_fn = partial(self._rank_mean, filter_mask=self.filter_mask)
             case "loss-weighted-average":
                 self._aggregation_fn = partial(
                     self._loss_weighted_avg,
@@ -273,14 +267,14 @@ class GenoAggregator:
         n_estimators: int,
         columns: List[str],
         aggregate_coeffs: bool = False,
-        idx_col: str = "estimator_idx"
+        idx_col: str = "estimator_idx",
     ) -> pd.Series:
         est_idx = group[idx_col].to_numpy(dtype=int)
-        X_sparse = group[columns].to_numpy(dtype=float) # (n_col_est, n_values)
-        X = np.full((n_estimators, X_sparse.shape[1]), np.nan) # (n_est, n_values)
-        X[est_idx, :] = X_sparse # (n_est, n_values)
+        X_sparse = group[columns].to_numpy(dtype=float)  # (n_col_est, n_values)
+        X = np.full((n_estimators, X_sparse.shape[1]), np.nan)  # (n_est, n_values)
+        X[est_idx, :] = X_sparse  # (n_est, n_values)
 
-        agg = self._aggregation_fn(X, aggregate_coeffs=aggregate_coeffs) # (n_values)
+        agg = self._aggregation_fn(X, aggregate_coeffs=aggregate_coeffs)  # (n_values)
         return pd.Series(agg, index=columns)
 
     def reset(self):

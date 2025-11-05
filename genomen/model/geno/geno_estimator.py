@@ -62,8 +62,7 @@ class GenoEstimator:
         )
         # aggregate shap values if present
         has_shaps = all(
-            "shap_values" in estimator.annotation_df.columns
-            for estimator in weak_estimators
+            "shap_values" in estimator.annotation_df.columns for estimator in weak_estimators
         )
         if has_shaps:
             # aggregate global shap
@@ -87,20 +86,19 @@ class GenoEstimator:
                         group=grp,
                         columns=["shap_values"],
                         n_estimators=len(weak_estimators),
-                        aggregate_coeffs=True # do not add offset for stacking
+                        aggregate_coeffs=True,  # do not add offset for stacking
                     )
                 )
                 .sort_index()
             )
 
             self.annotation_df = self.annotation_df.drop(columns=["shap_values"])
-            self.annotation_df = self.annotation_df.join(
-                agg_shap_df[["shap_values"]], how="left"
-            )
+            self.annotation_df = self.annotation_df.join(agg_shap_df[["shap_values"]], how="left")
 
             # aggregate interaction values
             estimators_with_interact = [
-                (i, est) for i, est in enumerate(weak_estimators)
+                (i, est)
+                for i, est in enumerate(weak_estimators)
                 if getattr(est, "interactions", None) is not None
             ]
             if len(estimators_with_interact) > 0:
@@ -111,17 +109,19 @@ class GenoEstimator:
                     nz_rows, nz_cols = np.nonzero(interact_values)
 
                     interact_dfs.append(
-                        pd.DataFrame({
-                            "variant_i": variant_idxs[nz_rows],
-                            "variant_j": variant_idxs[nz_cols],
-                            "interact_values": interact_values[nz_rows, nz_cols],
-                            "estimator_idx": i,
-                        })
+                        pd.DataFrame(
+                            {
+                                "variant_i": variant_idxs[nz_rows],
+                                "variant_j": variant_idxs[nz_cols],
+                                "interact_values": interact_values[nz_rows, nz_cols],
+                                "estimator_idx": i,
+                            }
+                        )
                     )
                 interact_df = pd.concat(interact_dfs, ignore_index=True)
-                interact_df[["variant_i", "variant_j"]] = interact_df[["variant_i", "variant_j"]].apply(
-                    lambda x: pd.Series(sorted(x)), axis=1
-                )
+                interact_df[["variant_i", "variant_j"]] = interact_df[
+                    ["variant_i", "variant_j"]
+                ].apply(lambda x: pd.Series(sorted(x)), axis=1)
                 interact_df = (
                     interact_df.groupby(["variant_i", "variant_j"], sort=True)
                     .apply(
@@ -129,9 +129,9 @@ class GenoEstimator:
                             group=grp,
                             columns=["interact_values"],
                             n_estimators=len(weak_estimators),
-                            aggregate_coeffs=False
+                            aggregate_coeffs=False,
                         ),
-                        include_groups=False
+                        include_groups=False,
                     )
                     .sort_index()
                     .reset_index()
@@ -143,7 +143,7 @@ class GenoEstimator:
                     )[["chr_i", "pos_i", "snp_i"]],
                     left_on="variant_i",
                     right_index=True,
-                    how="left"
+                    how="left",
                 )
                 # Annotate variant j
                 interact_df = interact_df.merge(
@@ -152,14 +152,12 @@ class GenoEstimator:
                     )[["chr_j", "pos_j", "snp_j"]],
                     left_on="variant_j",
                     right_index=True,
-                    how="left"
+                    how="left",
                 )
                 self.interactions = interact_df
 
         # aggregate models (if possible)
-        if (self.cfg.model_config.model_type == "linear") and (
-            not self.cfg.is_ensemble
-        ):
+        if (self.cfg.model_config.model_type == "linear") and (not self.cfg.is_ensemble):
             has_scaler = [estimator.scaler is not None for estimator in weak_estimators]
             if not all(has_scaler) and not all(not x for x in has_scaler):
                 raise ValueError(
@@ -208,7 +206,7 @@ class GenoEstimator:
                         group=grp,
                         columns=["coefficient"],
                         n_estimators=len(weak_estimators),
-                        aggregate_coeffs=True # do not add offset for stacking
+                        aggregate_coeffs=True,  # do not add offset for stacking
                     )
                 )
                 .sort_index()
@@ -233,14 +231,10 @@ class GenoEstimator:
             }
 
             # Create a single weak meta model with the aggregated parameters
-            model = [
-                WeakGenoEstimator(
-                    self.cfg.model_config, model_init_params=model_init_params
-                )
-            ]
+            model = [WeakGenoEstimator(self.cfg.model_config, model_init_params=model_init_params)]
             model[0].annotation_df = self.annotation_df
             model[0].scaler = None
-            self.aggregator.reset() # reset aggregator since folded into model
+            self.aggregator.reset()  # reset aggregator since folded into model
         else:
             model = weak_estimators
         self.model = model
@@ -252,9 +246,7 @@ class GenoEstimator:
         columns_to_drop = (
             ["cm", "MAF", "rsID"] + ["block_id"]
             if "block_id" in self.annotation_df
-            else [] + ["sampling_prior"]
-            if "sampling_prior" in self.annotation_df
-            else []
+            else [] + ["sampling_prior"] if "sampling_prior" in self.annotation_df else []
         )
         df_to_save = self.annotation_df.drop(columns=columns_to_drop)
 
@@ -288,7 +280,7 @@ class GenoEstimator:
         aggregation_data: DataSet | None,
         val_data: DataSet | None,
         background_sample_idxs: npt.NDArray | None,
-        batch_idx: int
+        batch_idx: int,
     ) -> Tuple[List[DataBatch], List[DataBatch], List[DataBatch | None], List[DataBatch | None]]:
         n_batches = self.train_cfg.batch_size if not self.cfg.is_ensemble else 1
 
@@ -310,7 +302,11 @@ class GenoEstimator:
             val_batch = val_data and val_data[:, variant_idxs]
             val_batches.append(val_batch)
 
-            background_batch = train_data[background_sample_idxs, variant_idxs] if background_sample_idxs is not None else None
+            background_batch = (
+                train_data[background_sample_idxs, variant_idxs]
+                if background_sample_idxs is not None
+                else None
+            )
             background_batches.append(background_batch)
 
         return train_batches, agg_batches, val_batches, background_batches
@@ -329,19 +325,13 @@ class GenoEstimator:
 
         if self.cfg.preprocessing_config.z_score_thresh > 0.0:
             z_scores = np.abs(stats.zscore(y_train))
-            sample_mask = np.where(
-                z_scores < self.cfg.preprocessing_config.z_score_thresh
-            )[0]
+            sample_mask = np.where(z_scores < self.cfg.preprocessing_config.z_score_thresh)[0]
 
             train_batch.X = train_batch.X[sample_mask]
-            train_batch.pheno_annotation = train_batch.pheno_annotation.iloc[
-                sample_mask
-            ]
+            train_batch.pheno_annotation = train_batch.pheno_annotation.iloc[sample_mask]
             train_batch.y = train_batch.y[sample_mask]
             train_batch.residuals = (
-                train_batch.residuals[sample_mask]
-                if train_batch.residuals is not None
-                else None
+                train_batch.residuals[sample_mask] if train_batch.residuals is not None else None
             )
             y_train = y_train[sample_mask]
 
@@ -368,22 +358,16 @@ class GenoEstimator:
                 score_func = chi2
             else:
                 # Auto-select based on task type
-                score_func = (
-                    f_classif if self.cfg.model_config.classification else f_regression
-                )
+                score_func = f_classif if self.cfg.model_config.classification else f_regression
 
             if fs_config.method == "k_best":
-                k = min(
-                    fs_config.k, X_train.shape[1]
-                )  # Ensure k doesn't exceed number of features
+                k = min(fs_config.k, X_train.shape[1])  # Ensure k doesn't exceed number of features
                 selector = SelectKBest(score_func=score_func, k=k)
                 X_train_selected = selector.fit_transform(X_train, y_train)
                 feature_mask = selector.get_support()
 
             elif fs_config.method == "percentile":
-                selector = SelectPercentile(
-                    score_func=score_func, percentile=fs_config.percentile
-                )
+                selector = SelectPercentile(score_func=score_func, percentile=fs_config.percentile)
                 X_train_selected = selector.fit_transform(X_train, y_train)
                 feature_mask = selector.get_support()
 
@@ -394,9 +378,7 @@ class GenoEstimator:
 
             elif fs_config.method == "mutual_info":
                 if self.cfg.model_config.classification:
-                    mi_scores = mutual_info_classif(
-                        X_train, y_train, random_state=batch_seed
-                    )
+                    mi_scores = mutual_info_classif(X_train, y_train, random_state=batch_seed)
                 else:
                     mi_scores = mutual_info_regression(
                         X_train,
@@ -417,9 +399,7 @@ class GenoEstimator:
                 if self.cfg.model_config.classification:
                     from sklearn.linear_model import LogisticRegression
 
-                    estimator = LogisticRegression(
-                        random_state=batch_seed, max_iter=100
-                    )
+                    estimator = LogisticRegression(random_state=batch_seed, max_iter=100)
                 else:
                     from sklearn.linear_model import LinearRegression
 
@@ -444,7 +424,9 @@ class GenoEstimator:
                     val_batch.geno_annotation = val_batch.geno_annotation.iloc[feature_mask]
                 if background_batch is not None:
                     background_batch.X = background_batch.X[:, feature_mask]
-                    background_batch.geno_annotation = background_batch.geno_annotation.iloc[feature_mask]
+                    background_batch.geno_annotation = background_batch.geno_annotation.iloc[
+                        feature_mask
+                    ]
 
         return train_batch, agg_batch, val_batch, background_batch
 
@@ -457,9 +439,7 @@ class GenoEstimator:
             ]
         else:
             model_names = [self.cfg.model_config.model_name] * self.train_cfg.batch_size
-            hyperparams = [
-                self.cfg.model_config.hyperparameters
-            ] * self.train_cfg.batch_size
+            hyperparams = [self.cfg.model_config.hyperparameters] * self.train_cfg.batch_size
 
         model_cfgs = []
         based_model_cfg = self.cfg.model_config
@@ -485,7 +465,7 @@ class GenoEstimator:
         train_cfg: TrainConfig,
         compute_interactions,
         use_resids: bool,
-        background_batch: DataBatch | None
+        background_batch: DataBatch | None,
     ):
         # fit weak estimator
         weak_estimator = WeakGenoEstimator(cfg=model_config)
@@ -497,7 +477,7 @@ class GenoEstimator:
             sample_weight=sample_weight,
             compute_shap=train_cfg.compute_shap,
             compute_interactions=compute_interactions,
-            background=background_batch
+            background=background_batch,
         )
 
         # predict
@@ -519,9 +499,11 @@ class GenoEstimator:
             weak_estimator_val_preds = weak_estimator.predict(val_batch)
             weak_estimator_val_score = utils.score(
                 y_val,
-                utils.sigmoid(weak_estimator_val_preds)
-                if classification
-                else weak_estimator_val_preds,
+                (
+                    utils.sigmoid(weak_estimator_val_preds)
+                    if classification
+                    else weak_estimator_val_preds
+                ),
                 train_cfg.scorer,
                 classification,
             )
@@ -547,12 +529,8 @@ class GenoEstimator:
         train_override_args = {"classification": train_data.cfg.classification}
         if train_data.cfg.compute_shap:
             train_override_args["compute_shap"] = True
-        self.train_cfg = train_cfg or utils.init_class(
-            cls=TrainConfig, **train_override_args
-        )
-        self.cfg.model_config.n_jobs = max(
-            self.train_cfg.n_jobs // self.train_cfg.batch_size, 1
-        )
+        self.train_cfg = train_cfg or utils.init_class(cls=TrainConfig, **train_override_args)
+        self.cfg.model_config.n_jobs = max(self.train_cfg.n_jobs // self.train_cfg.batch_size, 1)
 
         if train_data.cfg.variant_sampling.strat == "window":
             self.cfg.n_estimators = train_data.num_windows
@@ -566,9 +544,7 @@ class GenoEstimator:
             self.train_cfg.scorer,
         )
 
-        if (self.cfg.model_config.model_type == "dnn") and (
-            self.train_cfg.backend != "gpu"
-        ):
+        if (self.cfg.model_config.model_type == "dnn") and (self.train_cfg.backend != "gpu"):
             self._logger.warning(
                 "Selected DNN as weak estimator but cpu as backend. Setting backend to gpu!"
             )
@@ -595,21 +571,21 @@ class GenoEstimator:
         if self.cfg.aggregator_config.hold_out_neeeded:
             train_data, agg_data = split(train_data, seed=self.train_cfg.seed)
             agg_labels = agg_data.get_labels(use_resids=self.cfg.use_resids)
-            agg_sample_weight = (
-                agg_data.get_sampling_weight() if self.cfg.use_resids else None
-            )
+            agg_sample_weight = agg_data.get_sampling_weight() if self.cfg.use_resids else None
         else:
             agg_data = None
 
         if self.cfg.is_ensemble:
             n_batches = self.cfg.n_estimators
-            self.train_cfg.batch_size = len(
-                self.cfg.model_config.ensemble_estimator_names
-            )
+            self.train_cfg.batch_size = len(self.cfg.model_config.ensemble_estimator_names)
         else:
             n_batches = math.ceil(self.cfg.n_estimators / self.train_cfg.batch_size)
 
-        background_sample_idxs = train_data.get_background_sample_idxs(n_samples=500, seed=self.train_cfg.seed) if self.train_cfg.compute_shap else None
+        background_sample_idxs = (
+            train_data.get_background_sample_idxs(n_samples=500, seed=self.train_cfg.seed)
+            if self.train_cfg.compute_shap
+            else None
+        )
 
         progress_bar = tqdm(range(n_batches))
         for batch_idx in progress_bar:
@@ -640,18 +616,22 @@ class GenoEstimator:
                         list(train_batches),
                         list(agg_batches),
                         list(val_batches),
-                        list(background_batches)
+                        list(background_batches),
                     )
                 else:
                     # Sequential preprocessing (for ensemble or single batch)
                     train_batch, agg_batch, val_batch, background_batch = self._preprocess_batch(
-                        train_batches[0], agg_batches[0], val_batches[0], background_batches[0], batch_idx
+                        train_batches[0],
+                        agg_batches[0],
+                        val_batches[0],
+                        background_batches[0],
+                        batch_idx,
                     )
                     train_batches, agg_batches, val_batches, background_batches = (
                         [train_batch],
                         [agg_batch],
                         [val_batch],
-                        [background_batch]
+                        [background_batch],
                     )
 
             model_cfgs = self._get_model_cfgs()
@@ -667,7 +647,7 @@ class GenoEstimator:
                         self.train_cfg,
                         self.cfg.compute_interactions,
                         self.cfg.use_resids,
-                        background_batches[0]
+                        background_batches[0],
                     )
                 ]
             elif self.cfg.is_ensemble:
@@ -681,13 +661,11 @@ class GenoEstimator:
                         self.train_cfg,
                         self.cfg.compute_interactions,
                         self.cfg.use_resids,
-                        background_batches[0]
+                        background_batches[0],
                     )
                     for i in range(self.train_cfg.batch_size)
                 ]
-            elif (
-                self.train_cfg.backend == "gpu"
-            ):  # fit one model at a time if using gpu
+            elif self.train_cfg.backend == "gpu":  # fit one model at a time if using gpu
                 results = [
                     GenoEstimator.fit_weak_estimator(
                         train_batches[i],
@@ -698,7 +676,7 @@ class GenoEstimator:
                         self.train_cfg,
                         self.cfg.compute_interactions,
                         self.cfg.use_resids,
-                        background_batches[i]
+                        background_batches[i],
                     )
                     for i in range(self.train_cfg.batch_size)
                 ]
@@ -715,7 +693,7 @@ class GenoEstimator:
                         self.train_cfg,
                         self.cfg.compute_interactions,
                         self.cfg.use_resids,
-                        background_batches[i]
+                        background_batches[i],
                     )
                     for i in range(self.train_cfg.batch_size)
                 )
@@ -747,27 +725,23 @@ class GenoEstimator:
 
             if val_data:
                 y_val = val_data.get_labels(use_resids=False)  # self.cfg.use_resids
-                batch_strong_estimator_val_pred = self.aggregator(
-                    weak_estimator_val_preds
-                )
+                batch_strong_estimator_val_pred = self.aggregator(weak_estimator_val_preds)
                 batch_strong_estimator_val_metric = utils.score(
                     y_val,
-                    utils.sigmoid(batch_strong_estimator_val_pred)
-                    if val_data.cfg.classification
-                    else batch_strong_estimator_val_pred,
+                    (
+                        utils.sigmoid(batch_strong_estimator_val_pred)
+                        if val_data.cfg.classification
+                        else batch_strong_estimator_val_pred
+                    ),
                     self.train_cfg.scorer,
                     val_data.cfg.classification,
                 )
-                metrics["geno_strong_estimator_val"].append(
-                    batch_strong_estimator_val_metric
-                )
+                metrics["geno_strong_estimator_val"].append(batch_strong_estimator_val_metric)
 
             # early stopping logic
             if self.train_cfg.patience > 0:
                 if val_data is None:
-                    raise ValueError(
-                        "Cannot use early stopping without validation set!"
-                    )
+                    raise ValueError("Cannot use early stopping without validation set!")
 
                 if batch_strong_estimator_val_metric > current_best_val:
                     current_best_val = batch_strong_estimator_val_metric
@@ -802,9 +776,7 @@ class GenoEstimator:
                 if weak_estimator_metrics:
                     start_idx = batch_idx * self.train_cfg.batch_size
                     for i in range(self.train_cfg.batch_size):
-                        estimator_metrics = {
-                            k: v[i] for k, v in weak_estimator_metrics.items()
-                        }
+                        estimator_metrics = {k: v[i] for k, v in weak_estimator_metrics.items()}
                         estimator_metrics["estimator_idx"] = start_idx + i
                         wandb.log(estimator_metrics)
 
@@ -843,18 +815,14 @@ class GenoEstimator:
                 # recalibrate aggregator on selected estimators
                 if self.cfg.aggregator_config.hold_out_neeeded:
                     self.aggregator.calibrate(
-                        agg_scores=metrics["geno_aggregation_scores"][
-                            :best_n_estimators
-                        ],
+                        agg_scores=metrics["geno_aggregation_scores"][:best_n_estimators],
                         agg_preds=aggregation_preds[:best_n_estimators],
                         agg_labels=agg_labels,
                         agg_sample_weight=agg_sample_weight,
                     )
                 else:
                     self.aggregator.calibrate(
-                        agg_scores=metrics["geno_weak_estimator_val"][
-                            :best_n_estimators
-                        ]
+                        agg_scores=metrics["geno_weak_estimator_val"][:best_n_estimators]
                     )
 
         # init final model
@@ -865,13 +833,11 @@ class GenoEstimator:
         weak_estimator: WeakGenoEstimator,
         data_set: DataSet | None = None,
         data_batch: DataBatch | None = None,
-        sample_idxs: npt.NDArray | slice = slice(None)
+        sample_idxs: npt.NDArray | slice = slice(None),
     ) -> npt.NDArray:
         if data_batch is None:
             if data_set is None:
-                raise ValueError(
-                    "Need to provdie at least one, 'data_batch' or 'data_set'."
-                )
+                raise ValueError("Need to provdie at least one, 'data_batch' or 'data_set'.")
             weak_estimator_variants = weak_estimator.variant_idxs
             data_batch = data_set[sample_idxs, weak_estimator_variants]
 
@@ -886,14 +852,12 @@ class GenoEstimator:
         Fast memory-safe prediction for aggregated linear models by streaming variant chunks.
         Avoids constructing the full (n_samples x n_variants) matrix.
         """
-        assert isinstance(self.model, list) and len(self.model) == 1, (
-            "Aggregated linear model expected"
-        )
+        assert (
+            isinstance(self.model, list) and len(self.model) == 1
+        ), "Aggregated linear model expected"
         weak_estimator: WeakGenoEstimator = self.model[0]
 
-        self._logger.info(
-            f"Using {self.cfg.model_config.ram_mb} MB of storage for inference"
-        )
+        self._logger.info(f"Using {self.cfg.model_config.ram_mb} MB of storage for inference")
 
         # get non-zero coefficients (speeds up for L1) and intercept
         coef = weak_estimator.model.coef_
@@ -934,9 +898,7 @@ class GenoEstimator:
         all_sample_idxs = data_set.phenotype.sample_idxs
         for sample_start_idx in range(0, n_samples, s_chunk):
             sample_end_idx = min(n_samples, sample_start_idx + s_chunk)
-            batch_sample_idxs = all_sample_idxs[
-                np.arange(sample_start_idx, sample_end_idx)
-            ]
+            batch_sample_idxs = all_sample_idxs[np.arange(sample_start_idx, sample_end_idx)]
             n_samples_batch = len(batch_sample_idxs)
             batch_preds = np.zeros(n_samples_batch, dtype=np.float32)
 
@@ -947,9 +909,7 @@ class GenoEstimator:
             # stream over variants
             for variant_start_idx in range(0, n_vars, v_chunk):
                 variant_end_idx = min(n_vars, variant_start_idx + v_chunk)
-                batch_varaint_idxs = nonzero_variant_idxs[
-                    variant_start_idx:variant_end_idx
-                ]
+                batch_varaint_idxs = nonzero_variant_idxs[variant_start_idx:variant_end_idx]
                 batch_coefs = nonzero_coefs[variant_start_idx:variant_end_idx]
 
                 batch = data_set[batch_sample_idxs, batch_varaint_idxs]
@@ -963,14 +923,10 @@ class GenoEstimator:
         return np.concatenate(all_preds, axis=0)
 
     def predict(
-        self,
-        data_set: DataSet,
-        return_resids: bool = False
+        self, data_set: DataSet, return_resids: bool = False
     ) -> Tuple[npt.NDArray, npt.NDArray | None]:
         # predict with weak estimators
-        if (self.cfg.model_config.model_type == "linear") and (
-            not self.cfg.is_ensemble
-        ):
+        if (self.cfg.model_config.model_type == "linear") and (not self.cfg.is_ensemble):
             preds = self._linear_weak_estimator_safe_predict(data_set)
         elif self.train_cfg.backend == "gpu":
             all_preds = []
@@ -988,14 +944,10 @@ class GenoEstimator:
                     data_batch = data_set[:, variant_idxs]
 
                     batch_preds = []
-                    for weak_estimator in (
-                        batch_estimators
-                    ):  # do not use parallelism since data is the same
-                        pred = self._weak_estimator_predict(
-                            weak_estimator,
-                            data_set,
-                            data_batch
-                        )
+                    for (
+                        weak_estimator
+                    ) in batch_estimators:  # do not use parallelism since data is the same
+                        pred = self._weak_estimator_predict(weak_estimator, data_set, data_batch)
                         batch_preds.append(pred)
                 else:
                     batch_preds = Parallel(
@@ -1018,20 +970,21 @@ class GenoEstimator:
         return geno_preds, resid_preds
 
     def compute_local_shap(
-        self, 
+        self,
         data_set: DataSet,
         background_samples: int = 500,
         seed: int = 42,
         *,
         sample_idxs: npt.NDArray | slice = slice(None),
-        chunk_size: int = 2_000
+        chunk_size: int = 2_000,
     ) -> pd.DataFrame:
         sample_idxs = np.sort(sample_idxs).astype(np.uint32)
-        assert len(data_set) >= background_samples, "Dataset has to be larger than requested number of background samples"
-        
+        assert (
+            len(data_set) >= background_samples
+        ), "Dataset has to be larger than requested number of background samples"
+
         background_sample_idxs = data_set.get_background_sample_idxs(
-            n_samples=background_samples, 
-            seed=seed
+            n_samples=background_samples, seed=seed
         )
 
         we_shap_values = []
@@ -1040,13 +993,9 @@ class GenoEstimator:
         for batch_idx in range(n_batches):
             start_idx = batch_idx * batch_size
             end_idx = min(start_idx + batch_size, len(self.model))
-            batch_we_shap_values = Parallel(
-                n_jobs=self.train_cfg.n_jobs,
-                backend="threading"
-            )(   
-                delayed(self.model[i].compute_shap_values)
-                (
-                    data_set[sample_idxs, self.model[i].variant_idxs], 
+            batch_we_shap_values = Parallel(n_jobs=self.train_cfg.n_jobs, backend="threading")(
+                delayed(self.model[i].compute_shap_values)(
+                    data_set[sample_idxs, self.model[i].variant_idxs],
                     type="local",
                     background=data_set[background_sample_idxs, self.model[i].variant_idxs],
                 )
@@ -1057,21 +1006,21 @@ class GenoEstimator:
         we_shap_dfs = []
         for i, model in enumerate(self.model):
             we_shap_df = pd.DataFrame(
-                we_shap_values[i],
-                columns=model.variant_idxs,
-                index=sample_idxs
+                we_shap_values[i], columns=model.variant_idxs, index=sample_idxs
             )
-            we_shap_df['estimator_idx'] = i
-            
+            we_shap_df["estimator_idx"] = i
+
             we_shap_dfs.append(we_shap_df)
 
         agg_shap_df = pd.concat(we_shap_dfs, ignore_index=False)
-        variant_idxs = [variant_idx for variant_idx in agg_shap_df.columns if variant_idx != 'estimator_idx']
+        variant_idxs = [
+            variant_idx for variant_idx in agg_shap_df.columns if variant_idx != "estimator_idx"
+        ]
         chunks = []
         for start_idx in range(0, len(variant_idxs), chunk_size):
             end_idx = min(start_idx + chunk_size, len(variant_idxs))
             chunk_variant_idxs = variant_idxs[start_idx:end_idx]
-            chunk_columns = chunk_variant_idxs + ['estimator_idx']
+            chunk_columns = chunk_variant_idxs + ["estimator_idx"]
 
             chunk_df = agg_shap_df[chunk_columns].copy()
 
@@ -1082,39 +1031,47 @@ class GenoEstimator:
                         group=grp,
                         n_estimators=len(self.model),
                         columns=chunk_variant_idxs,
-                        aggregate_coeffs=True # do not add offset for stacking
+                        aggregate_coeffs=True,  # do not add offset for stacking
                     ),
-                    include_groups=False
+                    include_groups=False,
                 )
                 .sort_index()
             )
-            
+
             chunks.append(chunk_shap_df)
         agg_shap_df = pd.concat(chunks, axis=1)
         agg_shap_df["iid"] = agg_shap_df.index.map(data_set.phenotype.annotation_df["iid"])
 
         return agg_shap_df
-    
+
     def get_interactions(
         self,
         data_set: DataSet,
         *,
         background: DataBatch | None = None,
-        sample_idxs: npt.NDArray | slice = slice(None)
+        sample_idxs: npt.NDArray | slice = slice(None),
     ):
-        tree_models = [model for model in self.model if model.cfg.model_name in ["lightgbm", "xgboost", "catboost"]]
+        tree_models = [
+            model
+            for model in self.model
+            if model.cfg.model_name in ["lightgbm", "xgboost", "catboost"]
+        ]
         if not tree_models:
-            raise ValueError("Can only compute interactions for tree-based models. No tree-based models found!")
-        
+            raise ValueError(
+                "Can only compute interactions for tree-based models. No tree-based models found!"
+            )
+
         if self.annotation_df is None or "shap_values" not in self.annotation_df:
-            raise ValueError("SHAP values not found in model anootation data. Model must be trained with 'train_cfg.compute_shap = True' to compute interaction values")
+            raise ValueError(
+                "SHAP values not found in model anootation data. Model must be trained with 'train_cfg.compute_shap = True' to compute interaction values"
+            )
 
         """abs_shap_values = np.abs(self.annotation_df["shap_values"].values)
         percentile_threshold = np.percentile(abs_shap_values, p)
         top_snp_mask = abs_shap_values >= percentile_threshold
         top_variant_idxs = self.annotation_df.index.values[top_snp_mask]"""
 
-        #self._logger.info(f"Computing interaction values for {len(top_variant_idxs)} SNPs using {len(tree_models)} tree models...")
+        # self._logger.info(f"Computing interaction values for {len(top_variant_idxs)} SNPs using {len(tree_models)} tree models...")
         all_we_interactions = []
         for model in tree_models:
             explain_batch = data_set[sample_idxs, model.variant_idxs]

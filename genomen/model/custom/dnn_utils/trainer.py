@@ -58,9 +58,7 @@ class DNNTrainer:
         self.best_score = float("-inf")
         self.patience_counter = 0
 
-    def _training_step(
-        self, X: Int32[t.Tensor, "b seq"], y: Int32[t.Tensor, "b"]
-    ) -> float:
+    def _training_step(self, X: Int32[t.Tensor, "b seq"], y: Int32[t.Tensor, "b"]) -> float:
         self.model.train()
         logits = self.model(X)
 
@@ -150,7 +148,5 @@ class DNNTrainer:
                 else:
                     self.patience_counter += 1
                     if self.patience_counter >= self.cfg.patience:
-                        self._logger.info(
-                            f"Early stopping triggered after {epoch + 1} epochs"
-                        )
+                        self._logger.info(f"Early stopping triggered after {epoch + 1} epochs")
                         break
