@@ -6,8 +6,10 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/genomen.svg)](https://pypi.org/project/genomen/)
 [![PyPI downloads](https://img.shields.io/pypi/dm/genomen.svg)](https://pypi.org/project/genomen/)
+[![Website](https://img.shields.io/badge/🌐%20Website-visit-blue)](https://genomen-website.vercel.app/)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/release/python-3130/)
 [![Format Check](https://github.com/AI-sandbox/genomen/actions/workflows/format-check.yml/badge.svg)](https://github.com/AI-sandbox/genomen/actions/workflows/format-check.yml)
 
 </div>
