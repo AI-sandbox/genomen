@@ -1,0 +1,103 @@
+---
+DataSetConfig:
+  phenotype_id: null # will be set during runtime
+  classification: null # will be set during runtime
+  file_format: "plink"
+  populations: ["white_british"]
+  include_x_chromosome: false
+  maf_threshold: 0.05
+  covar_config:
+    include_covars: true
+    covar_keys: ["age", "sex", "Global_PC1", "Global_PC2", "Global_PC3", "Global_PC4", "Global_PC5", "Global_PC6", "Global_PC7", "Global_PC8", "Global_PC9", "Global_PC10"]
+  sample_sampling:
+    strat: "balanced"
+    k: 3
+    max_samples: null # will be set during runtime
+    balance_pops: false
+  variant_sampling:
+    strat: null # will be set during runtime
+    max_features: null # will be set during runtime
+    ld_config:
+      prune_kb: 250
+      prune_step: 50
+      prune_r2: 0.1
+      tau: 0.1
+      ld_window_kb: 1_000
+      ld_window: 50_000
+      eps: 0.0
+      eps_schedule: "constant"
+      eps_step_size: 0.0
+      temp: 1.0
+    gwas_config:
+      path: ""
+      snps_column: "SNPS"
+      pvalue_column: "P-VALUE"
+    window_overlap_ratio: 0.5
+---
+GenomenModelConfig:
+  covar_config:
+    covar_strat: "residualization"
+    model_config:
+      model_name: null # will be set during runtime
+      hyperparameters: {}
+      balance_classes: true
+  geno_config:
+    n_estimators: 32
+    preprocessing_config:
+      z_score_thresh: 0.0
+      standard_labels: false
+      feature_selection:
+        method: "k_best"
+        k: 10_000
+        percentile: 0.75
+        variance_threshold: 0.05
+        score_func: null # will be set during runtime
+    model_config:
+      model_name: null # will be set during runtime
+      hyperparameters: {} # will be set during runtime
+      balance_classes: true
+    aggregator_config:
+      filter_strat: null # will be set during runtime
+      agg_strat: null # will be set during runtime
+      use_summary_stats: true
+      model_config: 
+        model_name: null # will be set during runtime
+        hyperparameters: {}
+        balance_classes: true
+      p: null # will be set during runtime
+      temp: 0.05
+---
+TrainConfig:
+  batch_size: 2
+  n_jobs: 28
+  backend: "cpu"
+  scorer: null # will be set during runtime
+  patience: 10
+  seed: 42
+  log_with_wandb: true
+  save_annotation: false
+  save_model: false
+---
+BenchmarkConfig:
+  phenotypes:
+    - ad_alzheimer
+    - asthma
+    - gout
+    - hypertension
+    - type_1_diabetes
+    - type_2_diabetes
+    - iritis
+    - prostate_cancer
+    - lung_cancer
+    - thyroid_cancer
+    - ovarian_cancer
+    - hypertrophic_cardiomyopathy
+    - body_water_mass
+    - ldl_cholesterol
+    - mean_corpuscular_volume
+    - metabolic_rate
+    - platelet_count
+    - platelet_width
+    - standing_height
+    - triglycerides
+    - male_pattern_baldness

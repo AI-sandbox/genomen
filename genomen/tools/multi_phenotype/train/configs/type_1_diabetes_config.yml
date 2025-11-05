@@ -1,0 +1,112 @@
+---
+DataSetConfig:
+  phenotype_id: null
+  classification: null
+  file_format: "plink"
+  populations: ["white_british"]
+  include_x_chromosome: false
+  maf_threshold: 0.05
+  covar_config:
+    include_covars: true
+    covar_keys: ["age", "sex", "Global_PC1", "Global_PC2", "Global_PC3", "Global_PC4", "Global_PC5", "Global_PC6", "Global_PC7", "Global_PC8", "Global_PC9", "Global_PC10"]
+  sample_sampling:
+    strat: "balanced"
+    max_samples: 120_000
+    k: 3
+    balance_pops: false
+  variant_sampling:
+    strat: "random"
+    max_features: 30_000
+    ld_config:
+      prune_kb: 250
+      prune_step: 50
+      prune_r2: 0.1
+      tau: 0.1
+      ld_window_kb: 1_000
+      ld_window: 50_000
+      eps: 0.0
+      eps_schedule: "constant"
+      eps_step_size: 0.0
+    gwas_config:
+      path: "/private/groups/ioannidislab/dbonet/MetaPRS/gwas/ukb_step2_BT_allChrs_wCovars_HC337.regenie" #"/private/groups/ioannidislab/cthoma13/data/genomen/gwas/barrett_2009_19430480_t1d_efo0001359_1_gwas.sumstats.tsv"
+      snps_column: "ID"
+      pvalue_column: "p_value"
+      sep: '\s+'
+      nlogpvalue_column: "LOG10P"
+      impute_val: 0.1
+    window_overlap_ratio: 0.0
+---
+GenomenModelConfig:
+  covar_config:
+    covar_strat: null
+    model_config:
+      model_name: linear
+      hyperparameters: {}
+      balance_classes: false
+  geno_config:
+    n_estimators: 32
+    compute_interactions: True
+    preprocessing_config:
+      z_score_thresh: 0.0
+      standard_labels: false
+      feature_selection:
+        method: "k_best"  # Options: "none", "k_best", "percentile", "variance_threshold", "mutual_info", "rfe"
+        k: 10_000
+        percentile: 0.75
+        variance_threshold: 0.05
+        score_func: null
+    model_config:
+      model_name: ensemble
+      ensemble_estimator_names: ["linear_l1", "linear_l2", "lightgbm", "xgboost"]
+      hyperparameters: 
+        linear_l1:
+          alpha: 0.01
+        linear_l2:
+          alpha: 0.01
+        lightgbm:
+          bagging_fraction: 0.8577124927527939
+          bagging_freq: 1
+          boosting_type: "gbdt"
+          feature_fraction: 0.6320608997480861
+          lambda_l2: 0.005620447239870552
+          learning_rate: 0.015139602877842363
+          max_depth: 20
+          min_child_samples: 13
+          min_child_weight: 6.3376397124654
+          min_data_in_leaf: 270
+          min_gain_to_split: 2.5788236494903316
+          n_estimators: 1867
+          num_leaves: 205
+        xgboost:
+          booster: "gbtree"
+          colsample_bytree: 0.7219351893029226
+          learning_rate: 0.012344760651892222
+          max_depth: 6
+          n_estimators: 1256
+          reg_alpha: 0.17538326610016677
+          reg_lambda: 0.09433043492082774
+          subsample: 0.6421749324088866
+          tree_method: "hist"
+      balance_classes: true     
+    aggregator_config:
+      filter_strat: "geq-average"
+      agg_strat: "mean"
+      use_summary_stats: false
+      model_config: 
+        model_name: linear
+        hyperparameters: {}
+        balance_classes: true
+      p: 0.7
+      temp: 0.05
+---
+TrainConfig:
+  batch_size: 2
+  n_jobs: 28
+  backend: "cpu"
+  ram_mb: 100_000
+  scorer: null
+  patience: 10
+  seed: 42
+  log_with_wandb: true
+  save_annotation: false
+  save_model: false

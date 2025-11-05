@@ -1,0 +1,105 @@
+program: genomen/tools/eval/sweeps/sweep_train.py
+name: genomen_xgboost_sweep
+method: random
+metric:
+  name: test_pred_metric
+  goal: maximize
+
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - "--task_id=${envvar:TASK_ID}" 
+  - "--model_type=${envvar:MODEL_TYPE}" 
+
+parameters:
+  # data set params
+  max_samples_mult:
+    values: [2.0]
+
+  variant_sampling_strategy:
+    values: ["random"]
+
+  max_features:
+    values: [60000]
+
+  # model params
+  covar_model_name:
+    value: "linear"
+  
+  geno_model_name:
+    value: "xgboost"
+
+  geno_model_hyperparameters:
+    parameters:
+      xgboost:
+        parameters:
+          n_estimators:
+            distribution: int_uniform
+            min: 1200
+            max: 2000
+          num_leaves:  # Not used in xgboost, but max_leaves is equivalent for some boosters
+            distribution: int_uniform
+            min: 300
+            max: 800
+          reg_alpha:
+            distribution: log_uniform_values
+            min: 10.0
+            max: 100.0
+          reg_lambda:
+            distribution: log_uniform_values
+            min: 10.0
+            max: 100.0
+          min_child_weight:
+            distribution: int_uniform
+            min: 150
+            max: 300
+          max_depth:
+            distribution: int_uniform
+            min: 10
+            max: 20
+          gamma:
+            distribution: log_uniform_values
+            min: 0.1
+            max: 2.0
+          min_child_samples:  # Not used in xgboost, but included for parity
+            distribution: log_uniform_values
+            min: 5.0
+            max: 20.0
+          learning_rate:
+            distribution: log_uniform_values
+            min: 1.0e-2
+            max: 0.2
+          subsample:
+            distribution: uniform
+            min: 0.5
+            max: 0.95
+          colsample_bytree:
+            distribution: uniform
+            min: 0.5
+            max: 0.95
+          booster:
+            values: ["gbtree", "dart"]
+          tree_method:
+            value: "gpu_hist"
+          gpu_id:
+            value: 0
+
+  include_ss:
+    values: [true, false]
+
+  feature_selection_method:
+    values: ["k_best"]
+
+  aggregation_model_name:
+    values: ["linear"]
+
+  agg_mode:
+    values: ["mean", "stacking"]
+
+  filter_strat:
+    values: ["positive"]
+  
+  p:
+    values: [0.5, 0.6, 0.7]

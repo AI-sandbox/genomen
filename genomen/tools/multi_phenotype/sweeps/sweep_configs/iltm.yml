@@ -1,0 +1,131 @@
+program: genomen/tools/eval/sweeps/sweep_train.py
+name: genomen_iltm_sweep
+method: random
+metric:
+  name: test_pred_metric
+  goal: maximize
+
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - "--task_id=${envvar:TASK_ID}"
+  - "--model_type=${envvar:MODEL_TYPE}"
+
+parameters:
+  # data set params
+  max_samples_mult:
+    values: [2, 4, 8, "max"]
+
+  strat_sampling_ratio_multiplier:
+    parameters:
+      low:
+        values: [1.0, 5.0, 10.0, 20.0]
+      medium:
+        values: [0.5, 1.0, 1.5, 2.5]
+      high:
+        values: [0.5, 1.0, 1.2]
+
+  variant_sampling_strategy:
+    value: "random"
+
+  max_features:
+    values: [5000, 10000, 25000, 40000]
+
+  # model params
+  covar_model_name:
+    value: "linear"
+  
+  geno_model_name:
+    value: "iltm"
+
+  geno_model_hyperparameters:
+    parameters:
+      iltm:
+        parameters:
+          custom_path:
+            value: '/private/groups/ioannidislab/dbonet/TabularMaestro/ckpts/hyperfast_tabz_512_realmlpv0_seed1_zeropad_TabROnlyVal_2025-01-14_17-30-15/hyperfast_tabz_512_realmlpv0_seed1_zeropad_TabROnlyVal_2025-01-14_17-30-15_best.pth'
+          preprocessing:
+            value: 'realmlp_td_s_v0'
+          batch_size:
+            values: [1024, 2048]
+          n_ensemble:
+            values: [1, 4, 8, 12, 16, 20]
+          finetuning_dropout:
+            values: [0.0, 0.15]
+          finetuning_max_steps:
+            values: [1024, 2048, 4096]
+          finetuning_data:
+            values: ["bootstrap", "entire_dataset"]
+          finetuning_lr:
+            distribution: log_uniform_values
+            min: 3.0e-4
+            max: 1.0e-2
+          gradient_clip_norm:
+            values: [0.5, 1.0, 2.0]
+          tree_data_split:
+            values: ["dynamic", "all"]
+          tree_for_each_predictor:
+            values: [1, 0]
+          tree_n_estimators:
+            values: [100, 300]
+          gbdt_sampling:
+            values: [1, 0]
+          tree_lr:
+            distribution: log_uniform_values
+            min: 0.01
+            max: 0.5
+          do_retrieval:
+            values: [1, 0]
+          retrieval_alpha:
+            distribution: uniform
+            min: 0.0
+            max: 1.0
+          retrieval_temperature:
+            distribution: uniform
+            min: 0.5
+            max: 3.0
+          retrieval_distance:
+            values: ["cosine", "euclidean"]
+          patience:
+            values: [50, 100, 150]
+          clip_data_value:
+            value: 1000000
+          rf_size:
+            value: 32768
+          num_embeddings:
+            values: [1, 0]
+          num_embeddings_as_residual_proj:
+            values: [1, 0]
+          num_embeddings_from:
+            values: ["realmlp", "tabr"]
+          scheduler_type:
+            values: ["ReduceLROnPlateau", "CosineAnnealing"]
+          scheduler_factor:
+            distribution: log_uniform_values
+            min: 0.1
+            max: 0.5
+          scheduler_patience:
+            values: [3, 4, 5, 6, 7, 8, 9, 10]
+          scheduler_min_lr:
+            distribution: log_uniform_values
+            min: 1.0e-7
+            max: 1.0e-3
+          clip_predictions:
+            values: [1, 0]
+          use_amp_inference:
+            values: [1, 0]
+          use_amp_finetuning:
+            values: [1, 0]
+          use_layer_norms:
+            values: [1, 0]
+
+  aggregation_model_name:
+    value: "linear"
+
+  filter_strat:
+    values: ["none", "positive", "geq-average", "top-p-percentile"]
+  
+  p:
+    values: [0.4, 0.5, 0.6, 0.7, 0.8]

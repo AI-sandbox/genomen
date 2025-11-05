@@ -1,0 +1,133 @@
+{
+    "models": {
+        "ensemble": {
+            "model_type": "ensemble",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": [],
+            "supp_interpret_types": [
+                "internal",
+                "shap"
+            ]
+        },
+        "lightgbm": {
+            "model_type": "tree",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": []
+        },
+        "sgd": {
+            "model_type": "linear",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": [
+                "coef_",
+                "intercept_",
+                "classes_",
+                "n_features_in_"
+            ]
+        },
+        "sgd_l1": {
+            "model_type": "linear",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": [
+                "coef_",
+                "intercept_",
+                "classes_",
+                "n_features_in_"
+            ]
+        },
+        "sgd_l2": {
+            "model_type": "linear",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": [
+                "coef_",
+                "intercept_",
+                "classes_",
+                "n_features_in_"
+            ]
+        },
+        "sgd_elasticnet": {
+            "model_type": "linear",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": [
+                "coef_",
+                "intercept_",
+                "classes_",
+                "n_features_in_"
+            ]
+        },
+        "random_forest": {
+            "model_type": "tree",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": []
+        },
+        "bayesian": {
+            "model_type": "linear",
+            "supp_tasks": ["regression"],
+            "init_params": []
+        },
+        "simple_mlp": {
+            "model_type": "dnn",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": []
+        },
+        "linear": {
+            "model_type": "linear",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": [
+                "coef_",
+                "intercept_",
+                "classes_",
+                "n_features_in_"
+            ]
+        },
+        "elasticnet": {
+            "model_type": "linear",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": [
+                "coef_",
+                "intercept_",
+                "classes_",
+                "n_features_in_"
+            ]
+        },
+        "linear_l1": {
+            "model_type": "linear",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": [
+                "coef_",
+                "intercept_",
+                "classes_",
+                "n_features_in_"
+            ]
+        },
+        "linear_l2": {
+            "model_type": "linear",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": [
+                "coef_",
+                "intercept_",
+                "classes_",
+                "n_features_in_"
+            ]
+        },
+        "ridge": {
+            "model_type": "linear",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": [
+                "coef_",
+                "intercept_",
+                "classes_",
+                "n_features_in_"
+            ]
+        },
+        "catboost": {
+            "model_type": "tree",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": []
+        },
+        "xgboost": {
+            "model_type": "tree",
+            "supp_tasks": ["classification", "regression"],
+            "init_params": []
+        }
+    }
+}

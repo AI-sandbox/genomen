@@ -1,0 +1,84 @@
+---
+DataSetConfig:
+  phenotype_id: "HC337"             # must be column master file
+  classification: true              # true if phenotype is binary else false
+  file_format: "plink"              # only supports plink for now
+  populations: ["white_british"]    # list of population groups to include
+  include_x_chromosome: false       # whether to include variants from the X chromosome
+  maf_threshold: 0.05               # minimum minor allele frequency (MAF) required for variants to be retained
+  sex: null                         # optional filtering by sex ("m" for male, "w" for female, or null for both)
+  covar_config:
+    include_covars: false           # whether to include covariates at all in the model
+    covar_keys: ["age", "sex", "Global_PC1", "Global_PC2", "Global_PC3", "Global_PC4", "Global_PC5", "Global_PC6", "Global_PC7", "Global_PC8", "Global_PC9", "Global_PC10"]
+  sample_sampling:
+    strat: "stratify"               # strategy for sampling individuals; "random" or "stratify" (k:1 balanced classes)
+    max_samples: 50                 # maximum number of samples to include per patch (higher -> better)
+    balance_pops: false             # whether to balance the number of samples per patch across populations
+  variant_sampling:
+    strat: "random"                 # options: "random", "window", "LD", "GWAS"
+    max_features: 50                # maximum number of variants (features) to include per patch. Used as window size for strat = "window"
+    ld_config:                      # used when strat = "LD"
+      prune_kb: 250                 # distance window in kilobases for LD pruning
+      prune_step: 50                # step size (in variants) used during pruning
+      prune_r2: 0.1                 # LD threshold for pruning
+      tau: 0.1                      # variants with less correlation to prun variant will not be assigned to block
+      ld_window_kb: 1_000           # max window size for LD blocks in kb
+      ld_window: 50_000             # max window size for LD blocks in number of variants
+      eps: 0.0                      # epsilon parameter for epsilon-greedy sampling
+      eps_schedule: "constant"      # epsilon annilation schedule ("constant" or "step")
+      eps_step_size: 0.0            # step size for epsilon updates (if applicable)
+    gwas_config:                    # used when strat = "GWAS"
+      path: ""                      # path to a GWAS summary statistics file
+      snps_column: "variant_id"     # column name for SNP identifiers
+      pvalue_column: "pvalue"       # column name for raw p values
+      nlogpvalue_column: "LOG10P"   # column name for negative log of p values (will be used if provided)
+      sep: '\s+'                    # delimiter (space by default)
+      impute_val: 0.1               # imputation value for variants not in GWAS
+    window_overlap_ratio: 0.0       # stride as percentage of window size for window sampling
+---
+GenomenModelConfig:
+  covar_config:                     # configuration of covariate model
+    covar_strat: "residualization"  # "residualization" or "predictive"
+    model_config:                   # config of model used for covariate prediction
+      model_name: lightgbm          # model name, check genomen/model/models.json for overview of available model
+      hyperparameters: {}           # hyperparameters of model
+      balance_classes: true         # whether to balance classes in estimator loss
+  geno_config:                      # configuration of genotype model
+    n_estimators: 2                 # number of estimators
+    compute_interactions: True      # whether to compute interaction values at training time (ca. 2x training time)
+    preprocessing_config:           
+      z_score_thresh: 3.0           # z-score threshold to filter outliers
+      standard_labels: false        # whether to standardize labels
+      feature_selection:
+        method: "none"              # options: "none", "k_best", "percentile", "variance_threshold", "mutual_info", "rfe"
+        k: 15_000                   # number of variants selected in case of method="topk"
+        percentile: 0.75            # percentile of variants selected in case of method="percentile"
+        variance_threshold: 0.05    # variance_threshold for variants in case of method="variance_threshold"
+        score_func: "f_classif"     # scoring function used scoring ("f_classif", "f_regression", or "chi2")
+    model_config:
+      model_name: lightgbm          # model name, check genomen/model/models.json for overview of available model
+      ensemble_estimator_names: []  # names of weak estimator models to be used in ensemble (model_name="ensemble")
+      hyperparameters: {}           # hyperparameters of model
+      balance_classes: true         # whether to balance classes in estimator loss
+    aggregator_config:
+      filter_strat: "geq-average"   # filtering strategy ("none", "positive", "geq-average", "top-p-percentile")
+      agg_stat: "rank-mean"         # aggregation strategy ("mean", "loss-weighted-average", "stacking")
+      model_config: 
+        model_name: lightgbm        # model name of stacking model, check genomen/model/models.json for overview of available model
+        hyperparameters: {}         # hyperparameters of model
+        balance_classes: true       # whether to balance classes in estimator loss
+      p: 0.75                       # p used for top-p-percentile filtering
+      temp: 0.05                    # temperature temp used for softmax in filter_strat="loss-weighted-average"
+---
+TrainConfig:
+  batch_size: 2                     # number of models trained in parallel
+  n_jobs: 32                        # number of jobs that can be run in paralell
+  backend: "cpu"                    # backend to use ("cpu" or "gpu")
+  ram_mb: 16000                     # available ram
+  scorer: "rocauc"                  # scoring function for early stopping ("r2", "rocauc", "pearson_corr")
+  patience: 30                      # patience in number of batches
+  seed: 42                          # seed for reproducability
+  log_with_wandb: false             # whether to log with wanbd
+  save_annotation: false            # whether to save annotation files (e.g., effect sizes or vairant importance) to file 
+  save_model: false                 # whether to save model artifacts
+  compute_shap: false               # whether to compute shap values
