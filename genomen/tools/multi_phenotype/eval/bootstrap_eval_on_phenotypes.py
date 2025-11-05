@@ -6,11 +6,11 @@ import tempfile
 from typing import Literal
 
 import fire
-import yaml
 import numpy as np
+import yaml
 
 import genomen.utils as utils
-from genomen.data import DataSet, split, bootstrap
+from genomen.data import DataSet, bootstrap, split
 from genomen.model import GenomenModel
 from genomen.tools.multi_phenotype.phenotype_config import PHENOTYPES
 

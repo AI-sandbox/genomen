@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import logging
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple, Union
-import re
 
 import matplotlib.pyplot as plt
 import numpy as np

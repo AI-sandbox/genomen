@@ -1,11 +1,11 @@
 import concurrent.futures
+import gzip
 import logging
 import os
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Dict, List, Literal, Tuple
-import gzip
 
 import numpy as np
 import pandas as pd

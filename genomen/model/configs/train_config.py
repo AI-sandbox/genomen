@@ -1,8 +1,8 @@
-from pydantic.dataclasses import dataclass
 from dataclasses import field
 from typing import Literal
 
 import joblib
+from pydantic.dataclasses import dataclass
 
 from ...base_config import BaseConfig
 

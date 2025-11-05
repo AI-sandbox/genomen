@@ -236,8 +236,8 @@ class WeakEstimator:
         elif self.cfg.model_name == "bayesian":
             if self.cfg.backend == "gpu":
                 try:
-                    from cuml.linear_model import BayesianRidge
                     from cuml import set_global_output_type
+                    from cuml.linear_model import BayesianRidge
 
                     set_global_output_type("numpy")
                 except ImportError:
