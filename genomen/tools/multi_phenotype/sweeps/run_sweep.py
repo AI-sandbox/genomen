@@ -2,9 +2,8 @@ import logging
 import os
 
 import fire
-import yaml
-
 import wandb
+import yaml
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

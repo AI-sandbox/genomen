@@ -3,10 +3,10 @@ import os
 import tempfile
 
 import fire
+import wandb
 import yaml
 
 import genomen.utils as utils
-import wandb
 from genomen.data import DataSet, split
 from genomen.model import GenomenModel
 from genomen.tools.multi_phenotype.phenotype_config import PHENOTYPES
