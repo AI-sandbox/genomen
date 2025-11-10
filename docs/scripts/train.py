@@ -19,7 +19,9 @@ def main(cfg_path: str = "config.yml"):
     logger.info("Initiate data set...")
     dataset = DataSet()
     train_set, test_set, val_set = split(dataset, split_by_col=("split", ("train", "test", "val")))
-    logger.info(f"Got {len(train_set)} samples in train set and {len(val_set)} samples in validation set.")
+    logger.info(
+        f"Got {len(train_set)} samples in train set and {len(val_set)} samples in validation set."
+    )
 
     logger.info("Train Model...")
     model = GenomenModel()
