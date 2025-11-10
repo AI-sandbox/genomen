@@ -1,4 +1,5 @@
 import logging
+import pickle
 from pathlib import Path
 from typing import Literal, Tuple
 
@@ -254,3 +255,12 @@ class GenomenModel:
 
     def compute_local_shap(self, data: DataSet) -> npt.NDArray:
         return self.geno_model.compute_local_shap(data)
+    
+    def save(self, path: str) -> None:
+        with open(path, "wb") as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load(cls, path: str) -> "GenomenModel":
+        with open(path, "rb") as f:
+            return pickle.load(f)
