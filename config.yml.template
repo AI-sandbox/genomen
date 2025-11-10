@@ -11,7 +11,7 @@ DataSetConfig:
     include_covars: false           # whether to include covariates at all in the model
     covar_keys: ["age", "sex", "Global_PC1", "Global_PC2", "Global_PC3", "Global_PC4", "Global_PC5", "Global_PC6", "Global_PC7", "Global_PC8", "Global_PC9", "Global_PC10"]
   sample_sampling:
-    strat: "stratify"               # strategy for sampling individuals; "random" or "stratify" (k:1 balanced classes)
+    strat: "balanced"               # strategy for sampling individuals; "random" or "balanced" (k:1 balanced classes)
     max_samples: 50                 # maximum number of samples to include per patch (higher -> better)
     balance_pops: false             # whether to balance the number of samples per patch across populations
   variant_sampling:
