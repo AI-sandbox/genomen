@@ -154,6 +154,7 @@ def split(
             n_samples=len(train_pheno_annotation_df),
         )
 
+        data_set.cfg.is_train = True
         train_set = DataSet(cfg=data_set.cfg, genotype=train_genotype, phenotype=train_phenotype)
 
         # Create test set
