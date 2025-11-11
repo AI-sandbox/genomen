@@ -253,10 +253,12 @@ class GenomenModelConfig(BaseConfig):
         metadata={"help": "Maximum number of features to use for training"},
     )
     backend: Literal["cpu", "gpu"] = field(
-        default="cpu", metadata={"help": "Computing backend to use for training"}
+        default="cpu", 
+        metadata={"help": "Computing backend to use for training"}
     )
     model_dir: Optional[Path | str] | None = field(
-        default=None, metadata={"help": "Path to save the mode under."}
+        default=None, 
+        metadata={"help": "Path to save the mode under."}
     )
     ram_mb: int = field(default=16_000, metadata={"help": "Total available RAM in MB"})
 
