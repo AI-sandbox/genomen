@@ -77,7 +77,7 @@ class GenomenModel:
                 + f"FEAT{train_data.cfg.variant_sampling.max_features}"
             )
             wandb.init(
-                project="MetaPRS",
+                project=os.environ.get("WANDB_PROJECT"),
                 name=run_name,
                 config={
                     "train_cfg": self.train_cfg.__dict__,
