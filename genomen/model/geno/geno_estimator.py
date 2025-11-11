@@ -971,12 +971,43 @@ class GenoEstimator:
     def compute_local_shap(
         self,
         data_set: DataSet,
-        background_samples: int = 500,
-        seed: int = 42,
         *,
-        sample_idxs: npt.NDArray | slice = slice(None),
+        seed: int = 42,
+        sample_idxs: npt.NDArray | slice | None = None,
+        background_samples: int = 500,
+        n_samples: int = 2_000,
         chunk_size: int = 2_000,
     ) -> pd.DataFrame:
+        if sample_idxs is None:
+            rng = np.random.default_rng(seed)
+            all_sample_idxs = data_set.phenotype.sample_idxs
+            phenotypes = data_set.get_labels()
+
+            if data_set.cfg.classification:
+                # Binary classification: use only cases (phenotype == 1), up to n_samples
+                case_mask = (phenotypes == 1)
+                case_idxs = all_sample_idxs[case_mask]
+                
+                if len(case_idxs) > n_samples: 
+                    sample_idxs = rng.choice(case_idxs, size=n_samples, replace=False)
+                else:
+                    sample_idxs = case_idxs
+            else: # use adaptive_sampling to sample n_samples
+                from ...data.data_set import utils as data_set_utils
+                
+                sample_idxs = data_set_utils.adaptive_sampling(
+                    sample_idxs=all_sample_idxs,
+                    phenotypes=phenotypes,
+                    classification=data_set.cfg.classification,
+                    size=n_samples,
+                    rng=rng
+                )
+        elif isinstance(sample_idxs, slice):
+            sample_idxs = data_set.phenotype.sample_idxs[sample_idxs]
+            sample_idxs = np.asarray(sample_idxs)
+        else:
+            sample_idxs = np.asarray(sample_idxs)
+
         sample_idxs = np.sort(sample_idxs).astype(np.uint32)
         assert (
             len(data_set) >= background_samples
@@ -1040,6 +1071,7 @@ class GenoEstimator:
             chunks.append(chunk_shap_df)
         agg_shap_df = pd.concat(chunks, axis=1)
         agg_shap_df["iid"] = agg_shap_df.index.map(data_set.phenotype.annotation_df["iid"])
+        agg_shap_df.columns = agg_shap_df.columns.map(str)
 
         return agg_shap_df
 

@@ -56,22 +56,9 @@ def main(cfg_path: str = "config.yml"):
             f"Combined ({model.cfg.covar_config.covar_strat}) score on test set: {combined_score:.4f}"
         )
 
-    if test_set.cfg.classification:
-        logger.info("Computing local shap values for all cases")
-        # train
-        train_local_shap_df = model.geno_model.compute_local_shap(
-            train_set, sample_idxs=train_set.phenotype.sample_idxs[train_set.get_labels() == 1]
-        )
-        # val
-        val_local_shap_df = model.geno_model.compute_local_shap(
-            val_set, sample_idxs=val_set.phenotype.sample_idxs[val_set.get_labels() == 1]
-        )
-        # test
+        logger.info("Computing local shap values") # cases (up to 2k) for binary, subset of 2k samples for cont.
         test_local_shap_df = model.geno_model.compute_local_shap(
-            test_set, sample_idxs=test_set.phenotype.sample_idxs[test_set.get_labels() == 1]
-        )
-        local_shap_df = pd.concat(
-            [train_local_shap_df, val_local_shap_df, test_local_shap_df], axis=0
+            test_set, n_samples=2_000
         )
 
         local_shap_path = Path(model.cfg.variant_importance_dir, "test_local_shap.parquet")
