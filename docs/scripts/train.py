@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 import pandas as pd
 from fire import Fire
@@ -6,7 +7,6 @@ from fire import Fire
 import genomen.utils as utils
 from genomen.data import DataSet, split
 from genomen.model import GenomenModel
-from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -56,10 +56,10 @@ def main(cfg_path: str = "config.yml"):
             f"Combined ({model.cfg.covar_config.covar_strat}) score on test set: {combined_score:.4f}"
         )
 
-        logger.info("Computing local shap values") # cases (up to 2k) for binary, subset of 2k samples for cont.
-        test_local_shap_df = model.geno_model.compute_local_shap(
-            test_set, n_samples=2_000
-        )
+        logger.info(
+            "Computing local shap values"
+        )  # cases (up to 2k) for binary, subset of 2k samples for cont.
+        test_local_shap_df = model.geno_model.compute_local_shap(test_set, n_samples=2_000)
 
         local_shap_path = Path(model.cfg.variant_importance_dir, "test_local_shap.parquet")
         test_local_shap_df.to_parquet(local_shap_path)

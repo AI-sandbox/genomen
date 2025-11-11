@@ -985,22 +985,22 @@ class GenoEstimator:
 
             if data_set.cfg.classification:
                 # Binary classification: use only cases (phenotype == 1), up to n_samples
-                case_mask = (phenotypes == 1)
+                case_mask = phenotypes == 1
                 case_idxs = all_sample_idxs[case_mask]
-                
-                if len(case_idxs) > n_samples: 
+
+                if len(case_idxs) > n_samples:
                     sample_idxs = rng.choice(case_idxs, size=n_samples, replace=False)
                 else:
                     sample_idxs = case_idxs
-            else: # use adaptive_sampling to sample n_samples
+            else:  # use adaptive_sampling to sample n_samples
                 from ...data.data_set import utils as data_set_utils
-                
+
                 sample_idxs = data_set_utils.adaptive_sampling(
                     sample_idxs=all_sample_idxs,
                     phenotypes=phenotypes,
                     classification=data_set.cfg.classification,
                     size=n_samples,
-                    rng=rng
+                    rng=rng,
                 )
         elif isinstance(sample_idxs, slice):
             sample_idxs = data_set.phenotype.sample_idxs[sample_idxs]
