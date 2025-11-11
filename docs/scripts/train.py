@@ -6,6 +6,7 @@ from fire import Fire
 import genomen.utils as utils
 from genomen.data import DataSet, split
 from genomen.model import GenomenModel
+from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -73,9 +74,9 @@ def main(cfg_path: str = "config.yml"):
             [train_local_shap_df, val_local_shap_df, test_local_shap_df], axis=0
         )
 
-        local_shap_path = f"local_shap_{train_set.cfg.phenotype_id}.parquet"
-        logger.info(f"Saving local shap values to: {local_shap_path}")
-        local_shap_df.to_parquet(local_shap_path)
+        local_shap_path = Path(model.cfg.variant_importance_dir, "test_local_shap.parquet")
+        test_local_shap_df.to_parquet(local_shap_path)
+        logger.info(f"Saved local shap values computed on cases in test set to: {local_shap_path}")
 
 
 if __name__ == "__main__":
