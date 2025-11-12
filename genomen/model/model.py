@@ -1,4 +1,5 @@
 import logging
+import os
 import pickle
 from pathlib import Path
 from typing import Literal, Tuple
@@ -50,8 +51,12 @@ class GenomenModel:
             else:
                 global_run_manager.init_path(run_dir)
             model_dir = global_run_manager.get_path("model")
+            annotation_dir = global_run_manager.get_path("annotations")
+            vi_dir = global_run_manager.get_path("variant_importance")
 
             self.cfg.model_dir = model_dir
+            self.cfg.annotation_dir = annotation_dir
+            self.cfg.variant_importance_dir = vi_dir
 
         if self.train_cfg.log_with_wandb:
             geno_model_str = f"GENO{self.cfg.geno_config.model_config.model_name}_"
@@ -72,7 +77,7 @@ class GenomenModel:
                 + f"FEAT{train_data.cfg.variant_sampling.max_features}"
             )
             wandb.init(
-                project="MetaPRS",
+                project=os.environ.get("WANDB_PROJECT"),
                 name=run_name,
                 config={
                     "train_cfg": self.train_cfg.__dict__,
@@ -198,14 +203,11 @@ class GenomenModel:
 
         # safe geno annotation file if needed
         if self.train_cfg.save_annotation:
-            annotation_dir = global_run_manager.get_path("annotation")
-            self.geno_model.save_annotation_file(annotation_dir)
+            self.geno_model.save_annotation_file(self.cfg.annotation_dir)
 
         # save model if needed
         if self.train_cfg.save_model:
-            model_path = Path(self.cfg.model_dir, "genomen_model.pkl")
-            joblib.dump(self, model_path)
-            self._logger.info(f"Saved strong estimator to: {model_path}")
+            self.save()
 
     def _fuse_predict(
         self,
@@ -253,12 +255,11 @@ class GenomenModel:
 
             return geno_preds, None, None
 
-    def compute_local_shap(self, data: DataSet) -> npt.NDArray:
-        return self.geno_model.compute_local_shap(data)
-    
-    def save(self, path: str) -> None:
-        with open(path, "wb") as f:
-            pickle.dump(self, f)
+    def save(self, path: str | None = None) -> None:
+        if path is None:
+            path = Path(self.cfg.model_dir, "genomen_model.pkl")
+        joblib.dump(self, path)
+        self._logger.info(f"Saved model to: {path}")
 
     @classmethod
     def load(cls, path: str) -> "GenomenModel":
