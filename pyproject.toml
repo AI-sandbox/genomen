@@ -1,6 +1,6 @@
 [project]
 name = "genomen"
-version = "0.1.2"
+version = "0.1.3"
 description = "Polygenic Risk and Association beyond Linearity"
 readme = "README.md"
 requires-python = ">=3.11"
