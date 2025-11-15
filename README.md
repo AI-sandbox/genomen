@@ -68,8 +68,8 @@ For detailed documentation, tutorials, and examples, please visit the [official 
 If you use GenomEn in your research, please cite:
 
 ```bibtex
-@article{YourPaperKey2024,
-  title={Your Paper Title Here},
+@article{Thomassin2025,
+  title={Polygenic risk and association beyond linearity},
   author={First Author and Second Author and Third Author},
   journal={Conference/Journal Name},
   year={2024},
@@ -83,7 +83,7 @@ Contributions are welcome! Please feel free to submit a Pull Request. For develo
 
 ## License
 
-[License information]
+This project is licensed under the Apache License 2.0. See the [LICENSE](./LICENSE) file for details.
 
 ## Links
 
