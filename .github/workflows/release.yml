@@ -50,6 +50,7 @@ jobs:
     needs:
     - build
     runs-on: ubuntu-latest
+    if: github.event_name == 'release'
 
     steps:
     - name: Checkout
@@ -61,7 +62,7 @@ jobs:
         path: dist/
     - name: Upload dists
       run: |
-        gh release upload ${{ github.ref_name }} $(find . -iname genomen*.whl)
-        gh release upload ${{ github.ref_name }} $(find . -iname genomen*.tar.gz)
+        gh release upload ${{ github.event.release.tag_name }} $(find . -iname genomen*.whl)
+        gh release upload ${{ github.event.release.tag_name }} $(find . -iname genomen*.tar.gz)
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
