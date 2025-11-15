@@ -932,7 +932,7 @@ dependencies = [
     { name = "xgboost" },
 ]
 
-[package.dev-dependencies]
+[package.optional-dependencies]
 dev = [
     { name = "black" },
     { name = "ipykernel" },
@@ -962,10 +962,19 @@ gpu = [
 
 [package.metadata]
 requires-dist = [
+    { name = "black", marker = "extra == 'dev'", specifier = ">=25.1.0" },
     { name = "catboost", specifier = ">=1.2.7" },
+    { name = "cudf-cu12", marker = "extra == 'gpu'", specifier = ">=25.2,<26" },
+    { name = "cuml-cu12", marker = "extra == 'gpu'", specifier = ">=25.2,<26" },
+    { name = "cupy-cuda12x", marker = "extra == 'gpu'", specifier = ">=13.4,<14" },
     { name = "dacite", specifier = ">=1.9.2" },
+    { name = "einops", marker = "extra == 'dnn'", specifier = ">=0.6.0" },
     { name = "fire", specifier = ">=0.7.0" },
+    { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=6.29.5" },
+    { name = "isort", marker = "extra == 'dev'", specifier = ">=6.0.1" },
+    { name = "jaxtyping", marker = "extra == 'dnn'", specifier = ">=0.2.0" },
     { name = "joblib", specifier = ">=1.5.1" },
+    { name = "libcudf-cu12", marker = "extra == 'gpu'", specifier = ">=25.2,<26" },
     { name = "lightgbm", specifier = "==4.5" },
     { name = "matplotlib", specifier = ">=3.8.4" },
     { name = "nbformat", specifier = ">=5.10.4" },
@@ -973,42 +982,25 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "pgenlib", specifier = ">=0.92.1" },
     { name = "plotly", specifier = ">=6.3.0" },
+    { name = "py-spy", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "pyarrow", specifier = ">=19.0.1" },
+    { name = "pyranges", marker = "extra == 'dev'", specifier = ">=0.1.4" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.5" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "raft-dask-cu12", marker = "extra == 'gpu'", specifier = ">=25.2,<26" },
+    { name = "rmm-cu12", marker = "extra == 'gpu'", specifier = ">=25.2,<26" },
     { name = "scikit-learn", specifier = ">=1.6.0" },
     { name = "scikit-optimize", specifier = ">=0.10.2" },
+    { name = "seaborn", marker = "extra == 'dev'", specifier = ">=0.11.0" },
     { name = "shap", specifier = ">=0.46.0" },
     { name = "statsmodels", specifier = ">=0.14.4" },
+    { name = "torch", marker = "extra == 'dnn'", specifier = ">=2.5.0" },
+    { name = "torch", marker = "extra == 'gpu'", specifier = ">=2.5.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
+    { name = "umap-learn", marker = "extra == 'dev'", specifier = ">=0.5.9.post2" },
     { name = "wandb", specifier = ">=0.19.7" },
     { name = "xgboost", specifier = ">=2.1.4" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "black", specifier = ">=25.1.0" },
-    { name = "ipykernel", specifier = ">=6.29.5" },
-    { name = "isort", specifier = ">=6.0.1" },
-    { name = "py-spy", specifier = ">=0.4.0" },
-    { name = "pyranges", specifier = ">=0.1.4" },
-    { name = "pytest", specifier = ">=8.3.5" },
-    { name = "seaborn", specifier = ">=0.11.0" },
-    { name = "umap-learn", specifier = ">=0.5.9.post2" },
-]
-dnn = [
-    { name = "einops", specifier = ">=0.6.0" },
-    { name = "jaxtyping", specifier = ">=0.2.0" },
-    { name = "torch", specifier = ">=2.5.0" },
-]
-gpu = [
-    { name = "cudf-cu12", specifier = ">=25.2,<26" },
-    { name = "cuml-cu12", specifier = ">=25.2,<26" },
-    { name = "cupy-cuda12x", specifier = ">=13.4,<14" },
-    { name = "libcudf-cu12", specifier = ">=25.2,<26" },
-    { name = "raft-dask-cu12", specifier = ">=25.2,<26" },
-    { name = "rmm-cu12", specifier = ">=25.2,<26" },
-    { name = "torch", specifier = ">=2.5.0" },
 ]
 
 [[package]]

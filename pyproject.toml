@@ -28,7 +28,7 @@ dependencies = [
     "xgboost>=2.1.4",
 ]
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "black>=25.1.0",
     "ipykernel>=6.29.5",
