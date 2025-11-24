@@ -268,8 +268,10 @@ class GenoEstimator:
             )
 
         df_to_save.to_parquet(annotation_file_path)
+
+    def save_interactions(self, variant_importance_dir: Path | str):
         if self.interactions is not None:
-            interactions_file_path = Path(annotation_dir, "interactions.parquet")
+            interactions_file_path = Path(variant_importance_dir, "variant_interactions.parquet")
             self._logger.info(f"Saving interactions file to {interactions_file_path}...")
             self.interactions.to_parquet(interactions_file_path)
 
