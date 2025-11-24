@@ -28,7 +28,7 @@ DataSetConfig:
       eps_schedule: "constant"
       eps_step_size: 0.0
     gwas_config:
-      path: "/private/groups/ioannidislab/dbonet/MetaPRS/gwas/ukb_step2_QT_allChrs_wCovars_INI30780.regenie" #"/private/groups/ioannidislab/cthoma13/data/genomen/gwas/LDL_with_Effect.tbl"
+      path: "..."
       snps_column: "ID"
       pvalue_column: "p_value"
       sep: '\s+'

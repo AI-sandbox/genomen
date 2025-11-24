@@ -28,9 +28,8 @@ DataSetConfig:
       eps_schedule: "constant"
       eps_step_size: 0.0
     gwas_config:
-      path: "/private/groups/ioannidislab/dbonet/MetaPRS/gwas/ukb_step2_BT_allChrs_wCovars_HC1584.regenie" #"/private/groups/ioannidislab/cthoma13/data/genomen/gwas/Kunkle_etal_Stage1_results.txt"
-      snps_column: "ID" #"MarkerName"
-      #pvalue_column: "Pvalue" # "Pvalue"
+      path: "..."
+      snps_column: "ID"
       sep: '\s+'
       nlogpvalue_column: "LOG10P"
       impute_val: 0.1

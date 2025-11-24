@@ -205,6 +205,9 @@ class GenomenModel:
         if self.train_cfg.save_annotation:
             self.geno_model.save_annotation_file(self.cfg.annotation_dir)
 
+        # save interactions if needed
+        self.geno_model.save_interactions(self.cfg.variant_importance_dir)
+
         # save model if needed
         if self.train_cfg.save_model:
             self.save()

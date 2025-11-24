@@ -30,7 +30,7 @@ DataSetConfig:
       eps_schedule: "constant"
       eps_step_size: 0.0
     gwas_config:
-      path: "/private/groups/ioannidislab/dbonet/MetaPRS/gwas/ukb_step2_BT_allChrs_wCovars_HC328.regenie" #"/private/groups/ioannidislab/cthoma13/data/genomen/gwas/GUGC_MetaAnalysis_Results_Gout.csv"
+      path: "..."
       snps_column: "ID"
       pvalue_column: "p_value"
       sep: '\s+'
