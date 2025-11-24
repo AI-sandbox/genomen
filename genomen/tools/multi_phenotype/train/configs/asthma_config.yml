@@ -28,7 +28,7 @@ DataSetConfig:
       eps_schedule: "constant"
       eps_step_size: 0.0
     gwas_config:
-      path: "/private/groups/ioannidislab/dbonet/MetaPRS/gwas/ukb_step2_BT_allChrs_wCovars_HC382.regenie" #"/private/groups/ioannidislab/cthoma13/data/genomen/gwas/HanY_prePMID_asthma_UKBB.txt"
+      path: "..."
       snps_column: "ID"
       pvalue_column: "P"
       sep: '\s+'
