@@ -1,2 +1,2 @@
-from .config import DataSetConfig, GWASConfig
+from .config import DataSetConfig
 from .data_set import DataBatch, DataSet

@@ -14,7 +14,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def main(cfg_path: str = "config.yml"):
+def main(cfg_path: str = "config.yml", per_type_scores: bool = True):
     utils.set_config_path(cfg_path)
 
     logger.info("Initiate data set...")
@@ -38,6 +38,16 @@ def main(cfg_path: str = "config.yml"):
         test_set.cfg.classification,
     )
     logger.info(f"Geno-only score on test set: {geno_score:.4f}")
+    if per_type_scores and model.per_type_geno_preds is not None:
+        for type_name, type_preds in model.per_type_geno_preds.items():
+            type_score = utils.score(
+                test_set.get_labels(),
+                type_preds,
+                model.train_cfg.scorer,
+                test_set.cfg.classification,
+            )
+            logger.info(f"Geno-only score [{type_name}] on test set: {type_score:.4f}")
+
     if train_set.cfg.covar_config.include_covars:
         covar_score = utils.score(
             test_set.get_labels(),
@@ -45,7 +55,7 @@ def main(cfg_path: str = "config.yml"):
             model.train_cfg.scorer,
             test_set.cfg.classification,
         )
-        logger.info(f"Covar score on test set: {covar_score:.4f}")
+        logger.info(f"Covar-only score on test set: {covar_score:.4f}")
         combined_score = utils.score(
             test_set.get_labels(),
             preds,
@@ -55,15 +65,6 @@ def main(cfg_path: str = "config.yml"):
         logger.info(
             f"Combined ({model.cfg.covar_config.covar_strat}) score on test set: {combined_score:.4f}"
         )
-
-        logger.info(
-            "Computing local shap values"
-        )  # cases (up to 2k) for binary, subset of 2k samples for cont.
-        test_local_shap_df = model.geno_model.compute_local_shap(test_set, n_samples=2_000)
-
-        local_shap_path = Path(model.cfg.variant_importance_dir, "test_local_shap.parquet")
-        test_local_shap_df.to_parquet(local_shap_path)
-        logger.info(f"Saved local shap values computed on cases in test set to: {local_shap_path}")
 
 
 if __name__ == "__main__":

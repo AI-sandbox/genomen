@@ -5,7 +5,7 @@ import numpy.typing as npt
 from joblib import Parallel, delayed
 from sklearn.preprocessing import PowerTransformer
 
-from ... import utils
+from .. import utils as model_utils
 from ...data import DataBatch, DataSet, kfold
 from ..configs import ModelConfig
 from ..weak_estimator import WeakEstimator
@@ -28,27 +28,35 @@ class CovarEstimator(WeakEstimator):
             model_init_params: Optional parameters for model initialization
         """
         self.covar_keys: List[str] | None = None
-        self.residual_transformer: PowerTransformer | None = None
         self.eps = eps
         super().__init__(cfg, model_init_params)
         self.cfg.n_jobs = n_jobs
 
-    def _residualize(self, data: DataSet, preds: npt.NDArray) -> npt.NDArray:
-        y = data.get_labels()
-        if self.cfg.classification:
-            """scale = np.sqrt(preds * (1 - preds)) + self.eps
-            resid = (y - preds) / scale"""
-            preds_logits = utils.get_logits(preds, self.eps)
-            y_logits = utils.get_logits(y, self.eps)
-            resid = y_logits - preds_logits
-            if self.residual_transformer is None:
-                self.residual_transformer = PowerTransformer(method="yeo-johnson", standardize=True)
-                resid = self.residual_transformer.fit_transform(resid.reshape(-1, 1)).flatten()
-            else:
-                resid = self.residual_transformer.transform(resid.reshape(-1, 1)).flatten()
-        else:
-            resid = y - preds
+    def _to_offset(self, preds: npt.NDArray) -> npt.NDArray:
+        """Convert covar predictions to offset space.
 
+        For classification: logit(p), matching LGBM init_score and statsmodels GLM offset.
+        For regression: predictions are already in value space.
+        """
+        if self.cfg.classification:
+            eps = self.eps
+            return np.log(np.clip(preds, eps, 1 - eps) / np.clip(1 - preds, eps, 1 - eps))
+        return preds
+
+    def _residualize(self, data: DataSet, preds: npt.NDArray, standardize: bool = True) -> npt.NDArray:
+        y = data.get_labels()
+        print(f"Got values mean: {preds.mean()}, max: {max(y)}, min: {min(y)} as preds to residualize covariates")
+        resid = y - preds
+        print(f"Got residuals mean: {resid.mean()}, std: {resid.std()}, max: {max(resid)}, min: {min(resid)} before normalization for task {'cl' if self.cfg.classification else 'reg'}")
+        if standardize:
+            if self.cfg.classification:
+                transformer = model_utils.PearsonResidualTransformer()
+                resid = transformer.fit_transform(resid, preds)
+            else:
+                transformer = PowerTransformer(method="yeo-johnson", standardize=True)
+                resid = transformer.fit_transform(resid.reshape(-1, 1)).flatten()
+            data.phenotype.residual_transformer = transformer
+            print(f"Got residuals mean: {resid.mean()}, std: {resid.std()}, max: {max(resid)}, min: {min(resid)} after normalization for task {'cl' if self.cfg.classification else 'reg'}")
         return resid
 
     def cross_val_predict(
@@ -57,11 +65,15 @@ class CovarEstimator(WeakEstimator):
         cv: int = 5,
         refit: bool = False,
         residualize: bool = False,
+        use_offset: bool = False,
+        standardize: bool = True,
     ) -> Tuple[npt.NDArray, npt.NDArray]:
         self.covar_keys = data_set.cfg.covar_config.covar_keys
 
         covar_data = data_set.get_covars()
-        cv_folds, oof_idxs = kfold(covar_data, cv=cv, shuffle=False, return_oof_idxs=True)
+        cv_folds, oof_idxs = kfold(
+            covar_data, cv=cv, shuffle=False, return_oof_idxs=True
+        )
 
         def fit_fold(
             model_cfg: ModelConfig, train_fold: DataBatch, test_fold: DataBatch
@@ -69,7 +81,8 @@ class CovarEstimator(WeakEstimator):
             """Helper function to fit and predict for a single fold."""
             X_fold, y_fold = train_fold.X, train_fold.get_labels()
             fold_estimator = WeakEstimator(cfg=model_cfg)
-            fold_estimator.fit(X_fold, y_fold)
+            train_fold_sw = train_fold.get_sample_weights()
+            fold_estimator.fit(X_fold, y_fold, sample_weight=train_fold_sw)
 
             return fold_estimator.predict(test_fold.X)
 
@@ -88,17 +101,19 @@ class CovarEstimator(WeakEstimator):
 
         if refit:
             estimator = WeakEstimator(cfg=self.cfg)
-            estimator.fit(covar_data.X, covar_data.get_labels())
+            covar_data_sw = covar_data.get_sample_weights()
+            estimator.fit(covar_data.X, covar_data.get_labels(), sample_weight=covar_data_sw)
             self.model = estimator.model
 
         if residualize:
-            resids = self._residualize(data_set, oof_preds)
+            resids = self._residualize(data_set, oof_preds, standardize=standardize)
             data_set.phenotype.residuals = resids
+        if use_offset:
+            data_set.phenotype.covar_pred = self._to_offset(oof_preds)
 
-            return data_set, oof_preds
         return data_set, oof_preds
 
-    def predict(self, data_set: DataSet, residualize: bool = False) -> npt.NDArray:
+    def predict(self, data_set: DataSet, residualize: bool = False, use_offset: bool = False, standardize: bool = True) -> npt.NDArray:
         """Make predictions on a covariate data batch.
 
         Args:
@@ -111,7 +126,9 @@ class CovarEstimator(WeakEstimator):
         preds = super().predict(covar_data.X)
 
         if residualize:
-            resids = self._residualize(data_set, preds)
+            resids = self._residualize(data_set, preds, standardize=standardize)
             data_set.phenotype.residuals = resids
+        if use_offset:
+            data_set.phenotype.covar_pred = self._to_offset(preds)
 
         return data_set, preds

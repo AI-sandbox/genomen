@@ -18,6 +18,7 @@ class PhenoSet:
         self.annotation_df = annotation_df.sort_index()
         self._is_duplicate = self.annotation_df.index.duplicated(keep="first")
         self.covar_cfg = covar_cfg
+        self.residual_transformer = None
 
         self.case_control_ratio = self.y.mean()
 
@@ -48,6 +49,17 @@ class PhenoSet:
         self.annotation_df["residuals"] = value
 
     @property
+    def covar_pred(self) -> npt.NDArray | None:
+        """Get covariate predictions (logit space for classification, value space for regression)."""
+        if "covar_pred" not in self.annotation_df:
+            return None
+        return self.annotation_df["covar_pred"].values
+
+    @covar_pred.setter
+    def covar_pred(self, value: npt.ArrayLike) -> None:
+        self.annotation_df["covar_pred"] = value
+
+    @property
     def sample_idxs(self) -> npt.NDArray:
         """Get sample indices from annotation_df as numpy array."""
         return self.annotation_df.index.values
@@ -74,13 +86,15 @@ class PhenoSet:
 
     @classmethod
     def from_plink(cls, cfg: DataSetConfig, df: pd.DataFrame) -> "PhenoSet":
-        covar_keys = cfg.covar_config.covar_keys if cfg.covar_config.include_covars else []
+        covar_keys = (
+            cfg.covar_config.covar_keys if cfg.covar_config.include_covars else []
+        )
 
         # build phenotype annotation df
-        annotation_df = df[
-            ["fam_idx", "fid", "iid", "population"] + covar_keys + [cfg.phenotype_id]
-        ].copy()  # sample_idx population
-        annotation_df.rename(columns={cfg.phenotype_id: "y", "fam_idx": "sample_idx"}, inplace=True)
+        annotation_df = df[["fam_idx", "fid", "iid", "population"] + covar_keys + [cfg.phenotype_id]].copy()  # sample_idx population 
+        annotation_df.rename(
+            columns={cfg.phenotype_id: "y", "fam_idx": "sample_idx"}, inplace=True
+        )
         annotation_df.set_index("sample_idx", drop=True, inplace=True)
         annotation_df.index = annotation_df.index.astype(np.uint32)
 
@@ -96,9 +110,14 @@ class PhenoSet:
         unique_annotation_df = self.annotation_df[~self._is_duplicate]
         annotation_df = unique_annotation_df.loc[sample_idxs].copy()
         y = annotation_df["y"].values
-        residuals = annotation_df["residuals"].values if self.residuals is not None else None
+        residuals = (
+            annotation_df["residuals"].values if self.residuals is not None else None
+        )
+        covar_pred = (
+            annotation_df["covar_pred"].values if self.covar_pred is not None else None
+        )
 
-        return y, annotation_df, residuals
+        return y, annotation_df, residuals, covar_pred
 
     def get_covars(self) -> npt.NDArray:
         if not self.covar_keys:

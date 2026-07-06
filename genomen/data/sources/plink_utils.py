@@ -1,11 +1,11 @@
 import concurrent.futures
-import gzip
 import logging
 import os
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Dict, List, Literal, Tuple
+import gzip
 
 import numpy as np
 import pandas as pd
@@ -33,7 +33,9 @@ def get_plink_paths() -> Dict[str, str]:
         bed_path = bed_path.encode("utf-8") if bed_path else None
 
     except KeyError as e:
-        logger.error(f"Error loading paths from .env file: {e}. Check if all paths are set.")
+        logger.error(
+            f"Error loading paths from .env file: {e}. Check if all paths are set."
+        )
         raise
 
     return dict(
@@ -65,7 +67,9 @@ def load_fam_data(path: str) -> pd.DataFrame:
 
 
 def load_master_data(
-    path: str, columns: List[str] | None = None, sex: Literal["m", "w"] | None = None
+    path: str, 
+    columns: List[str] | None = None, 
+    sex: Literal["m", "w"] | None = None
 ) -> pd.DataFrame:
     """
     Load master file data into a DataFrame. The master file contains phenotype
@@ -81,7 +85,7 @@ def load_master_data(
     if (sex is not None) and (sex not in columns):
         columns.append("sex")
 
-    master_df = pd.read_csv(path, sep="\t", usecols=columns)
+    master_df = pd.read_csv(path, sep="\t", usecols=columns) 
     master_df["IID"] = master_df["IID"].astype(int).astype(str)
 
     if sex is not None:
@@ -149,16 +153,18 @@ def process_master_df(
         ).astype(np.uint32)
 
     # Order and filter master_df with fam_df
-    master_df = pd.merge(fam_df, master_df, left_on="iid", right_on="IID", how="left").dropna(
-        subset=["IID"]
-    )
+    master_df = pd.merge(
+        fam_df, master_df, left_on="iid", right_on="IID", how="left"
+    ).dropna(subset=["IID"])
     master_df["fam_idx"] = master_df.index
     master_df = master_df.reset_index(drop=True)
 
     return master_df
 
 
-def load_pgen_reader(bed_path: bytes, n_samples: int, idxs: np.ndarray) -> pg.PgenReader:
+def load_pgen_reader(
+    bed_path: bytes, n_samples: int, idxs: np.ndarray
+) -> pg.PgenReader:
     """
     Load a PgenReader object containing the genomic data for specific
     sample IDs.
@@ -178,13 +184,20 @@ def load_pgen_reader(bed_path: bytes, n_samples: int, idxs: np.ndarray) -> pg.Pg
     return pgen_reader
 
 
-def calculate_maf(bed_path: bytes, bim_path: str, fam_path: str) -> pd.DataFrame:
+def calculate_maf(
+    bed_path: bytes,
+    bim_path: str,
+    fam_path: str,
+    keep_iids: pd.DataFrame | None = None,
+) -> pd.DataFrame:
     """Calculate minor allele frequencies using PLINK.
 
     Args:
         bed_path: Path to .bed file
         bim_path: Path to .bim file
         fam_path: Path to .fam file
+        keep_iids: Optional DataFrame with 'fid' and 'iid' columns to restrict
+            MAF calculation to a subset of samples (e.g. train only).
 
     Returns:
         DataFrame containing SNP IDs and their MAF values
@@ -225,6 +238,11 @@ def calculate_maf(bed_path: bytes, bim_path: str, fam_path: str) -> pd.DataFrame
             "--silent",
         ]
 
+        if keep_iids is not None:
+            keep_path = os.path.join(tmp_dir, "keep.txt")
+            keep_iids[["fid", "iid"]].to_csv(keep_path, sep="\t", header=False, index=False)
+            cmd += ["--keep", keep_path]
+
         try:
             subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError as e:
@@ -236,6 +254,94 @@ def calculate_maf(bed_path: bytes, bim_path: str, fam_path: str) -> pd.DataFrame
         freq_df = freq_df.rename(columns={"ID": "SNP"})
 
     return freq_df
+
+
+def calculate_a0_freq(
+    bed_reader,
+    variant_idxs: np.ndarray,
+    sample_idxs: np.ndarray,
+    chunk_size: int = 10_000,
+    max_subsample: int = 5_000,
+) -> np.ndarray:
+    """Compute P(a0) = P(allele that bed_reader counts = BIM column 5) empirically.
+
+    PLINK --freq reports MAF = P(minor allele), which equals P(a0) only when a0 is
+    the minor allele.  For variants where a0 is the major allele, using MAF for
+    centering produces a large systematic bias.  This function estimates P(a0)
+    directly from the raw int8 counts (ignoring the -127 missing sentinel) so that
+    centering is always correct regardless of allele orientation.
+
+    Args:
+        bed_reader: Open bed_reader.open_bed instance.
+        variant_idxs: Global variant indices (into the BED file) to compute for.
+        sample_idxs: Global sample indices to read from.
+        chunk_size: Number of variants to read per chunk (controls peak memory).
+        max_subsample: Maximum number of samples to use; subsampled randomly
+            (seed=42) when len(sample_idxs) > max_subsample.  5000 samples gives
+            <2 % estimation error in allele frequency.
+
+    Returns:
+        Array of shape (len(variant_idxs),) with P(a0) values clipped to [0.001, 0.999].
+    """
+    sample_idxs = np.sort(np.asarray(sample_idxs, dtype=np.int64))
+    if len(sample_idxs) > max_subsample:
+        rng = np.random.default_rng(seed=42)
+        sample_idxs = np.sort(rng.choice(sample_idxs, size=max_subsample, replace=False))
+
+    variant_idxs = np.asarray(variant_idxs, dtype=np.int64)
+    n_variants = len(variant_idxs)
+    col_sum = np.zeros(n_variants, dtype=np.float64)
+    col_count = np.zeros(n_variants, dtype=np.int64)
+
+    for start in range(0, n_variants, chunk_size):
+        end = min(start + chunk_size, n_variants)
+        chunk = bed_reader.read(
+            index=np.s_[sample_idxs, variant_idxs[start:end]],
+            dtype="int8",
+            order="C",
+        )
+        valid = chunk != -127
+        col_sum[start:end] = np.where(valid, chunk.astype(np.float64), 0.0).sum(axis=0)
+        col_count[start:end] = valid.sum(axis=0)
+
+    col_means = col_sum / np.maximum(col_count, 1)  # E[count of a0] = 2*P(a0)
+    return np.clip(col_means / 2.0, 0.001, 0.999)
+
+
+def calculate_missingness(
+    bed_reader,
+    variant_idxs: np.ndarray,
+    sample_idxs: np.ndarray,
+    chunk_size: int = 10_000,
+) -> np.ndarray:
+    """Compute the per-variant missing genotype call rate.
+
+    Args:
+        bed_reader: Open bed_reader.open_bed instance.
+        variant_idxs: Global variant indices (into the BED file) to compute for.
+        sample_idxs: Global sample indices to read from.
+        chunk_size: Number of variants to read per chunk (controls peak memory).
+
+    Returns:
+        Array of shape (len(variant_idxs),) with the fraction of missing calls
+        (bed_reader's -127 sentinel) per variant, over the given samples.
+    """
+    sample_idxs = np.sort(np.asarray(sample_idxs, dtype=np.int64))
+    variant_idxs = np.asarray(variant_idxs, dtype=np.int64)
+    n_variants = len(variant_idxs)
+    n_samples = len(sample_idxs)
+    missing_count = np.zeros(n_variants, dtype=np.int64)
+
+    for start in range(0, n_variants, chunk_size):
+        end = min(start + chunk_size, n_variants)
+        chunk = bed_reader.read(
+            index=np.s_[sample_idxs, variant_idxs[start:end]],
+            dtype="int8",
+            order="C",
+        )
+        missing_count[start:end] = (chunk == -127).sum(axis=0)
+
+    return missing_count / n_samples
 
 
 def get_plink_path():
@@ -253,32 +359,29 @@ def get_repr_per_block(
     chr_num: int,
     plink_path: str | Path,
     bfile_prefix: str,
-    maf_threshold: int,
     prune_kb: int,
     prune_step: int,
     prune_r2: float,
     out_dir: Path,
+    extract_file: Path,
 ):
     # build a per-chr output prefix
     chr_prefix = out_dir / f"prn_chr{chr_num}"
     cmd = [
         plink_path,
-        "--bfile",
-        bfile_prefix,
-        "--chr",
-        str(chr_num),
-        "--maf",
-        str(maf_threshold),
-        "--indep-pairwise",
-        str(prune_kb),
-        str(prune_step),
-        str(prune_r2),
-        "--out",
-        str(chr_prefix),
+        "--bfile", bfile_prefix,
+        "--chr", str(chr_num),
+        "--extract", str(extract_file),
+        "--indep-pairwise", str(prune_kb), str(prune_step), str(prune_r2),
+        "--out", str(chr_prefix),
     ]
     try:
         subprocess.run(
-            cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
+            cmd, 
+            check=True, 
+            stdout=subprocess.DEVNULL, 
+            stderr=subprocess.PIPE, 
+            text=True
         )
     except subprocess.CalledProcessError as e:
         logger.error(f"PLINK command failed for chromosome {chr_num}")
@@ -290,13 +393,11 @@ def get_repr_per_block(
 
     return chr_prefix.with_suffix(".prune.in")
 
-
 def compute_ld(
     bed_path: bytes,
     bim_path: str,
     fam_path: str,
-    blocks_max_kb: int,
-    maf_threshold: float,
+    snp_ids: np.ndarray,
     prune_kb: int,
     prune_step: int,
     prune_r2: float,
@@ -304,7 +405,7 @@ def compute_ld(
     ld_window_kb: int,
     ld_window: int,
     include_x: bool,
-    ram_mb: int,
+    ram_mb: int
 ) -> pd.DataFrame:
     plink_path = get_plink_path()
 
@@ -332,6 +433,11 @@ def compute_ld(
         bfile_prefix = bed_path_str.rsplit(".", 1)[0]
         tmp_dir = Path(tmp_dir)
 
+        # write MAF-filtered SNP list for --extract
+        extract_file = tmp_dir / "extract.txt"
+        with open(extract_file, "w") as fh:
+            fh.write("\n".join(snp_ids) + "\n")
+
         # compute representatives per region
         repr_files: list[Path] = []
         # autosomes
@@ -346,11 +452,11 @@ def compute_ld(
                     chr,
                     plink_path,
                     bfile_prefix,
-                    maf_threshold,
                     prune_kb,
                     prune_step,
                     prune_r2,
                     out_auto,
+                    extract_file,
                 )
                 for chr in autosomes
             ]
@@ -358,27 +464,18 @@ def compute_ld(
                 rf = future.result()
                 if rf.exists():
                     repr_files.append(rf)
-        if include_x:  # sex chromosome
+        if include_x: # sex chromosome
             out_x = tmp_dir / "prn_X"
             out_x.mkdir(exist_ok=True)
             x_cmd = [
                 plink_path,
-                "--bfile",
-                bfile_prefix,
-                "--chr",
-                "X",
-                "--maf",
-                str(maf_threshold),
-                "--indep-pairwise",
-                str(prune_kb),
-                str(prune_step),
-                str(prune_r2),
-                "--ld-xchr",
-                "3",
-                "--out",
-                str(out_x),
-                "--threads",
-                str(workers),
+                "--bfile", bfile_prefix,
+                "--chr", "X",
+                "--extract", str(extract_file),
+                "--indep-pairwise", str(prune_kb), str(prune_step), str(prune_r2),
+                "--ld-xchr", "3",
+                "--out", str(out_x),
+                "--threads", str(workers)
             ]
             subprocess.run(
                 x_cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
@@ -395,28 +492,20 @@ def compute_ld(
         with open(reprs_path, "w") as fh:
             fh.write("\n".join(reprs) + "\n")
 
-        # LD map from reps to all SNPs
+        # LD map from reps to MAF-filtered SNPs only
         ld_out = tmp_dir / "ldmap"
         ld_cmd = [
             plink_path,
-            "--bfile",
-            bfile_prefix,
-            "--r2",
-            "gz",
-            "--ld-window-kb",
-            str(ld_window_kb),
-            "--ld-window",
-            str(ld_window),
-            "--ld-window-r2",
-            str(tau),
-            "--ld-snp-list",
-            str(reprs_path),
-            "--out",
-            str(ld_out),
-            "--threads",
-            str(workers),
-            "--memory",
-            str(ram_mb),
+            "--bfile", bfile_prefix,
+            "--extract", str(extract_file),
+            "--r2", "gz",
+            "--ld-window-kb", str(ld_window_kb),
+            "--ld-window", str(ld_window),
+            "--ld-window-r2", str(tau),
+            "--ld-snp-list", str(reprs_path),
+            "--out", str(ld_out),
+            "--threads", str(workers),
+            "--memory", str(ram_mb)
         ]
         subprocess.run(
             ld_cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
@@ -440,8 +529,13 @@ def compute_ld(
 
         snp_list = list(best.keys())
         block_ids = [f"REPR:{best[s][0]}" for s in snp_list]
+
+        # drop blocks with only one snp
         df = pd.DataFrame({"snp": snp_list, "block_id": block_ids})
         uniq = {bid: i + 1 for i, bid in enumerate(sorted(set(df["block_id"])))}
+        
+        # create block_idxs
         df["block_idx"] = df["block_id"].map(uniq)
+        df = df.drop(columns=["block_id"])
 
         return df

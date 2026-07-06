@@ -1,6 +1,6 @@
 [project]
 name = "genomen"
-version = "0.1.5"
+version = "1.0"
 description = "Polygenic Risk and Association beyond Linearity"
 readme = "README.md"
 license = "Apache-2.0"
@@ -19,7 +19,7 @@ dependencies = [
     "tqdm>=4.67.1",
     "wandb>=0.19.7",
     "pyarrow>=19.0.1",
-    "pgenlib>=0.92.1",
+    "bed-reader>=1.0.6",
     "statsmodels>=0.14.4",
     "joblib>=1.5.1",
     "dacite>=1.9.2",

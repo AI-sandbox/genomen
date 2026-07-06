@@ -31,15 +31,16 @@ def kfold(
 
         for train_idxs, test_idxs in split_idxs:
             # Create train set - use the actual indices directly
-            train_pheno_annotation_df = data_set.phenotype.annotation_df.iloc[train_idxs].copy()
+            train_pheno_annotation_df = data_set.phenotype.annotation_df.iloc[
+                train_idxs
+            ].copy()
 
             train_phenotype = PhenoSet(
                 annotation_df=train_pheno_annotation_df,
                 covar_cfg=data_set.cfg.covar_config,
             )
 
-            train_genotype = GenoSet(
-                pgen_reader=data_set.genotype.pgen_reader,
+            train_genotype = data_set.genotype.fork(
                 annotation_df=data_set.genotype.annotation_df,
                 n_samples=len(train_pheno_annotation_df),
             )
@@ -49,20 +50,23 @@ def kfold(
             )
 
             # Create test set - use the actual indices directly
-            test_pheno_annotation_df = data_set.phenotype.annotation_df.iloc[test_idxs].copy()
+            test_pheno_annotation_df = data_set.phenotype.annotation_df.iloc[
+                test_idxs
+            ].copy()
 
             test_phenotype = PhenoSet(
                 annotation_df=test_pheno_annotation_df,
                 covar_cfg=data_set.cfg.covar_config,
             )
 
-            test_genotype = GenoSet(
-                pgen_reader=data_set.genotype.pgen_reader,
+            test_genotype = data_set.genotype.fork(
                 annotation_df=data_set.genotype.annotation_df,
                 n_samples=len(test_pheno_annotation_df),
             )
 
-            test_set = DataSet(cfg=data_set.cfg, genotype=test_genotype, phenotype=test_phenotype)
+            test_set = DataSet(
+                cfg=data_set.cfg, genotype=test_genotype, phenotype=test_phenotype
+            )
 
             data_splits.append((train_set, test_set))
             oof_idxs.append(test_idxs)
@@ -73,9 +77,15 @@ def kfold(
 
         for train_idxs, test_idxs in split_idxs:
             # Create train set - use the actual indices directly
-            train_pheno_annotation_df = data_set.pheno_annotation.iloc[train_idxs].copy()
+            train_pheno_annotation_df = data_set.pheno_annotation.iloc[
+                train_idxs
+            ].copy()
             y_train = data_set.y[train_idxs]
-            resid_train = data_set.residuals[train_idxs] if data_set.residuals is not None else None
+            resid_train = (
+                data_set.residuals[train_idxs]
+                if data_set.residuals is not None
+                else None
+            )
             X_train = data_set.X[train_idxs]
 
             train_batch = DataBatch(
@@ -86,12 +96,17 @@ def kfold(
                 pheno_annotation=train_pheno_annotation_df,
                 residuals=resid_train,
                 scaler=data_set.scaler,
+                type=data_set.type,
             )
 
             # Create train set - use the actual indices directly
             test_pheno_annotation_df = data_set.pheno_annotation.iloc[test_idxs].copy()
             y_test = data_set.y[test_idxs]
-            resid_test = data_set.residuals[test_idxs] if data_set.residuals is not None else None
+            resid_test = (
+                data_set.residuals[test_idxs]
+                if data_set.residuals is not None
+                else None
+            )
             X_test = data_set.X[test_idxs]
 
             test_batch = DataBatch(
@@ -102,6 +117,7 @@ def kfold(
                 pheno_annotation=test_pheno_annotation_df,
                 residuals=resid_test,
                 scaler=data_set.scaler,
+                type=data_set.type,
             )
 
             data_splits.append((train_batch, test_batch))
