@@ -2,7 +2,7 @@
 
 # GenomEn
 
-**Polygenic Risk and Association beyond Linearity**
+**Biobank-scale Polygenic Risk Prediction with Nonlinear Estimators**
 
 [![PyPI version](https://img.shields.io/pypi/v/genomen.svg)](https://pypi.org/project/genomen/)
 [![PyPI downloads](https://img.shields.io/pypi/dm/genomen.svg)](https://pypi.org/project/genomen/)
@@ -16,9 +16,9 @@
 
 ## Overview
 
-Genomic Ensembling (GenomEn) is an ensemble framework for genotype-to-phenotype prediction that uses both linear and non-linear estimators to capture gene-gene interactions often overlooked by traditional polygenic risk score (PRS) methods. For more informations on the methods, please refer to our [paper](https://github.com/AI-sandbox). 
+Genomic Ensembling (GenomEn) is an ensemble framework for genotype-to-phenotype prediction that uses both linear and non-linear estimators to potentially capture gene-gene interactions often overlooked by traditional polygenic risk score (PRS) methods. For more informations on the methods, please refer to our [paper](https://github.com/AI-sandbox). 
 
-The package enables researchers to improve predictive performance beyond conventional linear PRS approaches by modeling complex genetic interactions. GenomEn also natively supports variants on the X sex chromosome, which are often neglected due to integration challenges with autosomes, further improving predictive performance and simplifying the study of X-linked traits. Finally, GenomEn allows for local and global variant-level interpretability via [SHAP](https://arxiv.org/abs/1705.07874) values, allowing to gain new insights into complex traits.
+The package enables researchers to improve predictive performance beyond conventional linear PRS approaches by modeling higher-order genetic interactions. GenomEn also natively supports variants on the X sex chromosome, which are often neglected due to integration challenges with autosomes, further improving predictive performance and simplifying the study of X-linked traits. Finally, GenomEn allows for local and global variant-level interpretability via [SHAP](https://arxiv.org/abs/1705.07874) values, allowing to gain new insights into complex traits.
 
 ## Installation
 
