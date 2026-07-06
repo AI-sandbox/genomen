@@ -8,6 +8,7 @@ import joblib
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+import wandb
 from joblib import Parallel, delayed
 from scipy import stats
 from sklearn.feature_selection import (
@@ -25,8 +26,6 @@ from sklearn.feature_selection import (
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
-
-import wandb
 
 from ... import utils
 from ...data import DataBatch, DataSet, split

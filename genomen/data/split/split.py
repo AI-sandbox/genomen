@@ -4,9 +4,10 @@ import copy
 import logging
 from typing import Dict, Tuple
 
-from genomen import data
 import numpy as np
 import pandas as pd
+
+from genomen import data
 
 from ..data_set import utils
 from ..data_set.data_set import DataSet

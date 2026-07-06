@@ -5,8 +5,8 @@ import numpy.typing as npt
 from joblib import Parallel, delayed
 from sklearn.preprocessing import PowerTransformer
 
-from .. import utils as model_utils
 from ...data import DataBatch, DataSet, kfold
+from .. import utils as model_utils
 from ..configs import ModelConfig
 from ..weak_estimator import WeakEstimator
 

@@ -1,18 +1,17 @@
 import logging
+import pickle
 from pathlib import Path
 from typing import Literal, Tuple
-import pickle
 
 import joblib
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-
 import wandb
 
 from .. import global_run_manager, utils
-from . import utils as model_utils
 from ..data import DataSet
+from . import utils as model_utils
 from .configs import GenomenModelConfig, TrainConfig
 from .covar import CovarEstimator
 from .geno import GenoEstimator
