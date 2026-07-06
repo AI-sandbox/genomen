@@ -1,19 +1,13 @@
 import hashlib
 import logging
-from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Literal
+from typing import Dict, Literal
 
 import numpy as np
 import numpy.typing as npt
-import pandas as pd
-import scipy.stats
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.preprocessing import KBinsDiscretizer
 
 from ..sources import plink_utils
-
-if TYPE_CHECKING:
-    from .config import GWASConfig
 
 logger = logging.getLogger(__name__)
 
@@ -141,54 +135,6 @@ def adaptive_sampling(
             sampled = rng.choice(sampled, size=size, replace=False)
 
         return sampled
-
-
-def get_gwas_priors(snps: np.ndarray[str], cfg: "GWASConfig") -> npt.NDArray[np.uint32]:
-    try:
-        df_gwas = pd.read_csv(cfg.path, sep=cfg.sep, low_memory=False)
-    except Exception as e:
-        raise ValueError(
-            f"variant_sampling=GWAS requires setting the path to a valid GWAS study. Error: {e}"
-        )
-
-    assert (cfg.pvalue_column is not None) or (
-        cfg.nlogpvalue_column is not None
-    ), "'pvalue_column' or 'nlogpvalue_column' has to specified in GWASConfig"
-
-    value_column = cfg.nlogpvalue_column if cfg.nlogpvalue_column is not None else cfg.pvalue_column
-    cols_type = {cfg.snps_column: str, value_column: float}
-    cols = list(cols_type.keys())
-
-    if any(col not in df_gwas.columns for col in cols):
-        raise ValueError("Invalid GWAS study, specify the correct SNP and P-Value columns")
-
-    df_gwas = df_gwas[cols].dropna()
-    for col, type_ in cols_type.items():
-        df_gwas[col] = df_gwas[col].astype(type_)
-
-    if cfg.pvalue_aggregation in ["mean", "min"]:
-        df_gwas = df_gwas.groupby(cfg.snps_column).aggregate({value_column: cfg.pvalue_aggregation})
-    else:
-        df_gwas = df_gwas.groupby(cfg.snps_column)[value_column].apply(
-            lambda x: scipy.stats.combine_pvalues(x, method=cfg.pvalue_aggregation)[1]
-        )
-
-    df = pd.DataFrame({cfg.snps_column: snps})
-    print(f"Got {len(df_gwas)} values from GWAS")
-    df = pd.merge(df, df_gwas, left_on=cfg.snps_column, right_on=cfg.snps_column, how="left")
-    if cfg.nlogpvalue_column is not None:
-        n_overlap = df[value_column].notna().sum()
-        logger.info(f"Found p-values for {n_overlap} variants in GWAS")
-        df["weight"] = df[value_column].fillna(cfg.impute_val)
-    else:
-        n_overlap = df[value_column].notna().sum()
-        logger.info(f"Found p-values for {n_overlap} variants in GWAS")
-        df = df.fillna(np.exp(-1))
-        df["weight"] = -np.log(df[value_column]).fillna(cfg.impute_val)
-
-    return np.nan_to_num(
-        df["weight"].values, nan=cfg.impute_val, posinf=33333333, neginf=cfg.impute_val
-    )
 
 
 def hash_ndarray(arr: np.ndarray, *, algo="blake2s", chunk_bytes=1 << 20) -> str:

@@ -18,6 +18,7 @@ class PhenoSet:
         self.annotation_df = annotation_df.sort_index()
         self._is_duplicate = self.annotation_df.index.duplicated(keep="first")
         self.covar_cfg = covar_cfg
+        self.residual_transformer = None
 
         self.case_control_ratio = self.y.mean()
 
@@ -46,6 +47,17 @@ class PhenoSet:
     def residuals(self, value: npt.ArrayLike) -> None:
         """Set residuals values in the annotation DataFrame."""
         self.annotation_df["residuals"] = value
+
+    @property
+    def covar_pred(self) -> npt.NDArray | None:
+        """Get covariate predictions (logit space for classification, value space for regression)."""
+        if "covar_pred" not in self.annotation_df:
+            return None
+        return self.annotation_df["covar_pred"].values
+
+    @covar_pred.setter
+    def covar_pred(self, value: npt.ArrayLike) -> None:
+        self.annotation_df["covar_pred"] = value
 
     @property
     def sample_idxs(self) -> npt.NDArray:
@@ -97,8 +109,9 @@ class PhenoSet:
         annotation_df = unique_annotation_df.loc[sample_idxs].copy()
         y = annotation_df["y"].values
         residuals = annotation_df["residuals"].values if self.residuals is not None else None
+        covar_pred = annotation_df["covar_pred"].values if self.covar_pred is not None else None
 
-        return y, annotation_df, residuals
+        return y, annotation_df, residuals, covar_pred
 
     def get_covars(self) -> npt.NDArray:
         if not self.covar_keys:

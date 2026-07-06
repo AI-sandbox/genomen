@@ -59,11 +59,64 @@ class GenoEstimator:
             .first()
             .sort_index()
         )
+
         # aggregate shap values if present
         has_shaps = all(
             "shap_values" in estimator.annotation_df.columns for estimator in weak_estimators
         )
         if has_shaps:
+            has_abs_col = all(
+                "shap_values_abs" in est.annotation_df.columns for est in weak_estimators
+            )
+
+            def _abs_shap_source_df(estimators_with_global_idx):
+                # Per-estimator mean(|shap|), keyed by global estimator_idx.
+                if has_abs_col:
+                    dfs = [
+                        pd.DataFrame(
+                            {
+                                "variant_idx": est.variant_idxs,
+                                "shap_values_abs": est.annotation_df["shap_values_abs"].values,
+                                "estimator_idx": global_i,
+                            }
+                        )
+                        for global_i, est in estimators_with_global_idx
+                    ]
+                else:
+                    dfs = [
+                        pd.DataFrame(
+                            {
+                                "variant_idx": est.variant_idxs,
+                                "shap_values_abs": np.abs(est.annotation_df["shap_values"].values),
+                                "estimator_idx": global_i,
+                            }
+                        )
+                        for global_i, est in estimators_with_global_idx
+                    ]
+                return pd.concat(dfs, ignore_index=False)
+
+            def _aggregate_abs_shap(estimators_with_global_idx, filter_mask=None):
+                # Combine per-estimator mean(|shap|) with the same calibrated aggregator
+                # (NaN-aware mean / aggregation weights / filter_mask) used for the signed
+                # shap_values below, instead of a raw sum across estimators -- a raw sum
+                # would scale with how many estimators happened to include a variant
+                # (which differs between e.g. linear and nonlinear weak-estimator counts).
+                abs_df = _abs_shap_source_df(estimators_with_global_idx)
+                return (
+                    abs_df.set_index("variant_idx", drop=True)
+                    .groupby(level=0, sort=True)
+                    .apply(
+                        lambda grp: self.aggregator.aggregate_group(
+                            group=grp,
+                            columns=["shap_values_abs"],
+                            n_estimators=len(weak_estimators),
+                            aggregate_coeffs=True,
+                            filter_mask=filter_mask,
+                        )
+                    )
+                    .sort_index()
+                )
+
             # aggregate global shap
             shap_dfs = []
             for i, estimator in enumerate(weak_estimators):
@@ -76,9 +129,9 @@ class GenoEstimator:
                 )
                 shap_dfs.append(est_shap_df)
 
-            agg_shap_df = pd.concat(shap_dfs, ignore_index=False)
+            concat_shap_df = pd.concat(shap_dfs, ignore_index=False)
             agg_shap_df = (
-                agg_shap_df.set_index("variant_idx", drop=True)
+                concat_shap_df.set_index("variant_idx", drop=True)
                 .groupby(level=0, sort=True)
                 .apply(
                     lambda grp: self.aggregator.aggregate_group(
@@ -90,84 +143,119 @@ class GenoEstimator:
                 )
                 .sort_index()
             )
+            abs_agg_shap_df = _aggregate_abs_shap(list(enumerate(weak_estimators)))
 
-            self.annotation_df = self.annotation_df.drop(columns=["shap_values"])
-            self.annotation_df = self.annotation_df.join(agg_shap_df[["shap_values"]], how="left")
-
-            # aggregate interaction values
-            estimators_with_interact = [
-                (i, est)
-                for i, est in enumerate(weak_estimators)
-                if getattr(est, "interactions", None) is not None
+            cols_to_drop = [
+                c for c in ["shap_values", "shap_values_abs"] if c in self.annotation_df.columns
             ]
-            if len(estimators_with_interact) > 0:
-                interact_dfs = []
-                for i, est in estimators_with_interact:
-                    variant_idxs = est.variant_idxs
-                    interact_values = np.triu(est.interactions, k=1)
-                    nz_rows, nz_cols = np.nonzero(interact_values)
+            self.annotation_df = self.annotation_df.drop(columns=cols_to_drop)
+            self.annotation_df = self.annotation_df.join(
+                agg_shap_df[["shap_values"]], how="left"
+            ).join(abs_agg_shap_df[["shap_values_abs"]], how="left")
 
-                    interact_dfs.append(
-                        pd.DataFrame(
-                            {
-                                "variant_i": variant_idxs[nz_rows],
-                                "variant_j": variant_idxs[nz_cols],
-                                "interact_values": interact_values[nz_rows, nz_cols],
-                                "estimator_idx": i,
-                            }
+            # for ensemble models, also save per-model-type shap values
+            if self.cfg.is_ensemble:
+                linear_estimators = [
+                    (i, est)
+                    for i, est in enumerate(weak_estimators)
+                    if est.cfg.model_type == "linear"
+                ]
+                nonlinear_estimators = [
+                    (i, est)
+                    for i, est in enumerate(weak_estimators)
+                    if est.cfg.model_type != "linear"
+                ]
+                for group_name, group_estimators in [
+                    ("linear", linear_estimators),
+                    ("nonlinear", nonlinear_estimators),
+                ]:
+                    if not group_estimators:
+                        continue
+                    group_shap_dfs = []
+                    for global_i, estimator in group_estimators:
+                        group_shap_dfs.append(
+                            pd.DataFrame(
+                                {
+                                    "variant_idx": estimator.variant_idxs,
+                                    "shap_values": estimator.annotation_df["shap_values"].values,
+                                    "estimator_idx": global_i,
+                                }
+                            )
                         )
+                    group_concat_shap_df = pd.concat(group_shap_dfs, ignore_index=False)
+                    # Build a global-length type mask and AND with the global filter_mask
+                    # so that estimators of the wrong type and filtered-out estimators are
+                    # both excluded from the per-type SHAP average.
+                    type_mask = np.zeros(len(weak_estimators), dtype=bool)
+                    for global_i, _ in group_estimators:
+                        type_mask[global_i] = True
+                    group_filter_mask = (
+                        type_mask & self.aggregator.filter_mask
+                        if self.aggregator.filter_mask is not None
+                        else type_mask
                     )
-                interact_df = pd.concat(interact_dfs, ignore_index=True)
-                interact_df[["variant_i", "variant_j"]] = interact_df[
-                    ["variant_i", "variant_j"]
-                ].apply(lambda x: pd.Series(sorted(x)), axis=1)
-                interact_df = (
-                    interact_df.groupby(["variant_i", "variant_j"], sort=True)
-                    .apply(
-                        lambda grp: self.aggregator.aggregate_group(
-                            group=grp,
-                            columns=["interact_values"],
-                            n_estimators=len(weak_estimators),
-                            aggregate_coeffs=False,
+                    group_agg_shap_df = (
+                        group_concat_shap_df.set_index("variant_idx", drop=True)
+                        .groupby(level=0, sort=True)
+                        .apply(
+                            lambda grp: self.aggregator.aggregate_group(
+                                group=grp,
+                                columns=["shap_values"],
+                                n_estimators=len(weak_estimators),
+                                aggregate_coeffs=True,
+                                filter_mask=group_filter_mask,
+                            )
+                        )
+                        .sort_index()
+                    )
+                    group_abs_agg_shap_df = _aggregate_abs_shap(
+                        group_estimators, filter_mask=group_filter_mask
+                    ).rename(columns={"shap_values_abs": f"shap_values_{group_name}_abs"})
+                    col_name = f"shap_values_{group_name}"
+                    self.annotation_df = self.annotation_df.join(
+                        group_agg_shap_df[["shap_values"]].rename(
+                            columns={"shap_values": col_name}
                         ),
-                        include_groups=False,
-                    )
-                    .sort_index()
-                    .reset_index()
-                )
-                # Annotate variant i
-                interact_df = interact_df.merge(
-                    self.annotation_df.rename(
-                        columns={"chr_name": "chr_i", "chr_position": "pos_i", "snp": "snp_i"}
-                    )[["chr_i", "pos_i", "snp_i"]],
-                    left_on="variant_i",
-                    right_index=True,
-                    how="left",
-                )
-                # Annotate variant j
-                interact_df = interact_df.merge(
-                    self.annotation_df.rename(
-                        columns={"chr_name": "chr_j", "chr_position": "pos_j", "snp": "snp_j"}
-                    )[["chr_j", "pos_j", "snp_j"]],
-                    left_on="variant_j",
-                    right_index=True,
-                    how="left",
-                )
-                self.interactions = interact_df
+                        how="left",
+                    ).join(group_abs_agg_shap_df, how="left")
 
         # aggregate models (if possible)
         if (self.cfg.model_config.model_type == "linear") and (not self.cfg.is_ensemble):
-            has_scaler = [estimator.scaler is not None for estimator in weak_estimators]
-            if not all(has_scaler) and not all(not x for x in has_scaler):
-                raise ValueError(
-                    "Cannot have some weak_estimators trained with standardization and some without"
-                )
-            standardization = any(has_scaler)
+            model = [self.fold_linear_estimators(weak_estimators)]
+            self.aggregator.reset()  # reset aggregator since folded into model
+        else:
+            model = weak_estimators
+        self.model = model
 
-            # Aggregate estimator information
-            estimator_dfs = []
-            estimator_intercepts = []
-            for i, estimator in enumerate(weak_estimators):
+    def fold_linear_estimators(
+        self, linear_estimators: List[WeakGenoEstimator]
+    ) -> WeakGenoEstimator:
+        """Fold a list of linear weak estimators (e.g. bagged linear_l1 sub-models,
+        each fit on its own variant/sample subsample) into a single WeakGenoEstimator
+        with one aggregated coef_/intercept_, using this geno model's aggregator
+        (mean / loss-weighted / stacking / etc., respecting its filter_strat).
+
+        Each estimator's coefficients are placed in the global variant-index space
+        before aggregation, so the folded model predicts using the union of
+        variants the input estimators collectively used — no refitting, no
+        variant subset selection.
+        """
+        has_scaler = [estimator.scaler is not None for estimator in linear_estimators]
+        if not all(has_scaler) and not all(not x for x in has_scaler):
+            raise ValueError(
+                "Cannot have some weak_estimators trained with standardization and some without"
+            )
+        standardization = any(has_scaler)
+
+        # Aggregate estimator information
+        estimator_dfs = []
+        estimator_intercepts = []
+        for i, estimator in enumerate(linear_estimators):
+            if getattr(estimator, "_use_sklearn_offset", False):
+                # offset appended as last column — exclude it from geno betas
+                beta = estimator.model.coef_.reshape(-1)[:-1]
+                beta0 = float(np.atleast_1d(estimator.model.intercept_)[0])
+            else:
                 beta = estimator.model.coef_
                 if hasattr(beta, "values"):
                     # sklearn/pandas access pattern
@@ -181,62 +269,59 @@ class GenoEstimator:
                     if np.ndim(estimator.model.intercept_)
                     else float(estimator.model.intercept_)
                 )
-                if standardization:  # adjust for 'raw space'
-                    beta = beta * estimator.scaler.scale_
-                    beta0 = beta0 * estimator.scaler.scale_ + estimator.scaler.mean_
+            if standardization:  # adjust for 'raw space'
+                beta = beta * estimator.scaler.scale_
+                beta0 = beta0 * estimator.scaler.scale_ + estimator.scaler.mean_
 
-                df_estimator = pd.DataFrame(
-                    {
-                        "variant_idx": estimator.variant_idxs,
-                        "coefficient": beta,
-                        "estimator_idx": i,
-                    }
-                )
-                estimator_intercepts.append(beta0)
-                estimator_dfs.append(df_estimator)
-
-            # Aggregate estimators
-            combined_df = pd.concat(estimator_dfs, ignore_index=False)
-            estimator_df = (
-                combined_df.set_index("variant_idx", drop=True)
-                .groupby(level=0, sort=True)
-                .apply(
-                    lambda grp: self.aggregator.aggregate_group(
-                        group=grp,
-                        columns=["coefficient"],
-                        n_estimators=len(weak_estimators),
-                        aggregate_coeffs=True,  # do not add offset for stacking
-                    )
-                )
-                .sort_index()
+            df_estimator = pd.DataFrame(
+                {
+                    "variant_idx": estimator.variant_idxs,
+                    "coefficient": beta,
+                    "estimator_idx": i,
+                }
             )
-            estimator_intercept = self.aggregator(estimator_intercepts).item()
+            estimator_intercepts.append(beta0)
+            estimator_dfs.append(df_estimator)
 
-            # Initialize model parameters
-            if self.cfg.model_config.classification:
-                coef = estimator_df["coefficient"].values.reshape(1, -1)
-                intercept = np.array([estimator_intercept])
-                classes = np.array([0, 1])
-            else:
-                coef = estimator_df["coefficient"].values
-                intercept = estimator_intercept
-                classes = None
+        # Aggregate estimators
+        combined_df = pd.concat(estimator_dfs, ignore_index=False)
+        estimator_df = (
+            combined_df.set_index("variant_idx", drop=True)
+            .groupby(level=0, sort=True)
+            .apply(
+                lambda grp: self.aggregator.aggregate_group(
+                    group=grp,
+                    columns=["coefficient"],
+                    n_estimators=len(linear_estimators),
+                    aggregate_coeffs=True,  # do not add offset for stacking
+                )
+            )
+            .sort_index()
+        )
+        estimator_intercept = self.aggregator(estimator_intercepts).item()
 
-            model_init_params = {
-                "coef_": coef,
-                "intercept_": intercept,
-                "classes_": classes,
-                "n_features_in_": estimator_df.shape[0],
-            }
-
-            # Create a single weak meta model with the aggregated parameters
-            model = [WeakGenoEstimator(self.cfg.model_config, model_init_params=model_init_params)]
-            model[0].annotation_df = self.annotation_df
-            model[0].scaler = None
-            self.aggregator.reset()  # reset aggregator since folded into model
+        # Initialize model parameters
+        if self.cfg.model_config.classification:
+            coef = estimator_df["coefficient"].values.reshape(1, -1)
+            intercept = np.array([estimator_intercept])
+            classes = np.array([0, 1])
         else:
-            model = weak_estimators
-        self.model = model
+            coef = estimator_df["coefficient"].values
+            intercept = estimator_intercept
+            classes = None
+
+        model_init_params = {
+            "coef_": coef,
+            "intercept_": intercept,
+            "classes_": classes,
+            "n_features_in_": estimator_df.shape[0],
+        }
+
+        # Create a single weak meta model with the aggregated parameters
+        folded = WeakGenoEstimator(linear_estimators[0].cfg, model_init_params=model_init_params)
+        folded.annotation_df = self.annotation_df.loc[estimator_df.index]
+        folded.scaler = None
+        return folded
 
     def save_annotation_file(self, annotation_dir: Path | str):
         # save geno annotation file if needed
@@ -268,26 +353,26 @@ class GenoEstimator:
             )
 
         df_to_save.to_parquet(annotation_file_path)
-
-    def save_interactions(self, variant_importance_dir: Path | str):
         if self.interactions is not None:
-            interactions_file_path = Path(variant_importance_dir, "variant_interactions.parquet")
+            interactions_file_path = Path(annotation_dir, "interactions.parquet")
             self._logger.info(f"Saving interactions file to {interactions_file_path}...")
             self.interactions.to_parquet(interactions_file_path)
 
     def _sample_batches(
         self,
         train_data: DataSet,
-        aggregation_data: DataSet | None,
+        agg_data: DataSet | None,
         val_data: DataSet | None,
         background_sample_idxs: npt.NDArray | None,
         batch_idx: int,
-    ) -> Tuple[List[DataBatch], List[DataBatch], List[DataBatch | None], List[DataBatch | None]]:
+    ) -> Tuple[List[DataBatch], List[DataBatch], List[DataBatch], List[DataBatch | None]]:
         n_batches = self.train_cfg.batch_size if not self.cfg.is_ensemble else 1
 
         train_batches, agg_batches, val_batches, background_batches = [], [], [], []
         for i in range(n_batches):
-            model_idx = batch_idx * self.train_cfg.batch_size + i
+            model_idx = (
+                batch_idx if self.cfg.is_ensemble else batch_idx * self.train_cfg.batch_size + i
+            )
             batch_seed = self.train_cfg.seed + model_idx
 
             sample_idxs, variant_idxs = train_data.sample_batch_idxs(
@@ -297,7 +382,7 @@ class GenoEstimator:
             train_batch = train_data[sample_idxs, variant_idxs]
             train_batches.append(train_batch)
 
-            agg_batch = aggregation_data and aggregation_data[:, variant_idxs]
+            agg_batch = agg_data and agg_data[:, variant_idxs]
             agg_batches.append(agg_batch)
 
             val_batch = val_data and val_data[:, variant_idxs]
@@ -319,7 +404,7 @@ class GenoEstimator:
         val_batch: DataBatch | None,
         background_batch: DataBatch | None,
         batch_idx: int,
-    ) -> Tuple[DataBatch, DataBatch | None, DataBatch | None]:
+    ) -> Tuple[DataBatch, DataBatch | None, DataBatch | None, DataBatch | None]:
         batch_seed = self.train_cfg.seed + batch_idx
         y_train = train_batch.get_labels(use_resids=self.cfg.use_resids)
         sample_mask = np.ones(len(y_train), dtype=bool)
@@ -346,7 +431,7 @@ class GenoEstimator:
         feature_mask = None
         if self.cfg.preprocessing_config.feature_selection.method != "none":
             fs_config = self.cfg.preprocessing_config.feature_selection
-            X_train = train_batch.X
+            X_train = train_batch.X.astype(np.float32, copy=False)
 
             # Choose score function based on config and task type
             if fs_config.score_func == "f_classif":
@@ -415,7 +500,7 @@ class GenoEstimator:
             train_batch.X = X_train_selected
             train_batch.geno_annotation = train_batch.geno_annotation.iloc[feature_mask]
 
-            # Update the aggregation, validation, and test data with selected features
+            # Update the aggregation, validation, background, and test data with selected features
             if feature_mask is not None:
                 if agg_batch is not None:
                     agg_batch.X = agg_batch.X[:, feature_mask]
@@ -452,6 +537,13 @@ class GenoEstimator:
                 n_jobs=self.train_cfg.n_jobs,
             )
             batch_model_cfg._initialize_from_catalog(overwrite=True)
+            # In residualization mode, only LGBM with use_offset trains on original labels
+            # and therefore retains the classification flag.  All other estimators train on
+            # continuous residuals and must be treated as regression.
+            if self.cfg.use_resids and not (
+                batch_model_cfg.use_offset and batch_model_cfg.model_name == "lightgbm"
+            ):
+                batch_model_cfg.classification = False
             model_cfgs.append(batch_model_cfg)
 
         return model_cfgs
@@ -470,24 +562,25 @@ class GenoEstimator:
     ):
         # fit weak estimator
         weak_estimator = WeakGenoEstimator(cfg=model_config)
-        sample_weight = train_batch.get_sample_weights() if use_resids else None
+        sample_weight = train_batch.get_sample_weights() if not use_resids else None
         weak_estimator.fit(
             train_batch,
-            val_batch,
             use_resids,
             sample_weight=sample_weight,
             compute_shap=train_cfg.compute_shap,
             compute_interactions=compute_interactions,
             background=background_batch,
+            agg_batch=agg_batch,
+            val_batch=val_batch,
+            orig_classification=classification,
         )
 
-        # predict
         if agg_batch is not None:
-            agg_preds = weak_estimator.predict(agg_batch)
             y_agg = agg_batch.get_labels()
+            agg_preds = weak_estimator.predict(agg_batch)
             agg_score = utils.score(
                 y_agg,
-                utils.sigmoid(agg_preds) if classification else agg_preds,
+                agg_preds,  # no sigmoid bc prob space for cls
                 train_cfg.scorer,
                 classification,
             )
@@ -500,11 +593,7 @@ class GenoEstimator:
             weak_estimator_val_preds = weak_estimator.predict(val_batch)
             weak_estimator_val_score = utils.score(
                 y_val,
-                (
-                    utils.sigmoid(weak_estimator_val_preds)
-                    if classification
-                    else weak_estimator_val_preds
-                ),
+                weak_estimator_val_preds,  # no sigmoid bc prob space for cls
                 train_cfg.scorer,
                 classification,
             )
@@ -526,18 +615,16 @@ class GenoEstimator:
         val_data: DataSet,
         train_cfg: TrainConfig | None = None,
     ):
-        print(f"Got train_data with {len(train_data)} samples")
         train_override_args = {"classification": train_data.cfg.classification}
         if train_data.cfg.compute_shap:
             train_override_args["compute_shap"] = True
         self.train_cfg = train_cfg or utils.init_class(cls=TrainConfig, **train_override_args)
-        self.cfg.model_config.n_jobs = max(self.train_cfg.n_jobs // self.train_cfg.batch_size, 1)
-
-        if train_data.cfg.variant_sampling.strat == "window":
-            self.cfg.n_estimators = train_data.num_windows
-            self._logger.info(
-                f"Mapped data to {train_data.num_windows} windows. Setting n_estimators from {self.cfg.n_estimators} to {train_data.num_windows}!"
-            )
+        effective_batch_size = (
+            len(self.cfg.model_config.ensemble_estimator_names)
+            if self.cfg.is_ensemble
+            else self.train_cfg.batch_size
+        )
+        self.cfg.model_config.n_jobs = max(self.train_cfg.n_jobs // effective_batch_size, 1)
 
         self.aggregator = GenoAggregator(
             self.cfg.model_config.classification,
@@ -545,10 +632,23 @@ class GenoEstimator:
             self.train_cfg.scorer,
         )
 
-        if (self.cfg.model_config.model_type == "dnn") and (self.train_cfg.backend != "gpu"):
-            self._logger.warning(
-                "Selected DNN as weak estimator but cpu as backend. Setting backend to gpu!"
+        # split train into fit and aggregation sets before scoring
+        if self.cfg.aggregator_config.hold_out_neeeded:
+            print("Getting holdout")
+            train_data, agg_data = split(train_data, seed=self.train_cfg.seed)
+            train_data.setup()
+            agg_labels = agg_data.get_labels(use_resids=self.cfg.use_resids)
+            agg_sample_weight = agg_data.get_sampling_weight() if not self.cfg.use_resids else None
+
+            self._logger.info(
+                f"Propagating train annotation_df to eval sets (variants: {len(train_data.genotype.annotation_df)})"
             )
+            if val_data is not None:
+                val_data.genotype.annotation_df = train_data.genotype.annotation_df.copy()
+        else:
+            agg_data = None
+            agg_labels = None
+            agg_sample_weight = None
 
         # init running variables
         weak_estimators: List[WeakGenoEstimator] = []
@@ -564,17 +664,6 @@ class GenoEstimator:
         current_best_val = float("-inf")
         patience_counter = 0
         best_iter = 0
-
-        # score variants in train
-        train_data.score_variants(ram_mb=self.train_cfg.ram_mb)
-
-        # split train set to have aggregation set
-        if self.cfg.aggregator_config.hold_out_neeeded:
-            train_data, agg_data = split(train_data, seed=self.train_cfg.seed)
-            agg_labels = agg_data.get_labels(use_resids=self.cfg.use_resids)
-            agg_sample_weight = agg_data.get_sampling_weight() if self.cfg.use_resids else None
-        else:
-            agg_data = None
 
         if self.cfg.is_ensemble:
             n_batches = self.cfg.n_estimators
@@ -600,8 +689,8 @@ class GenoEstimator:
                 if self.train_cfg.batch_size > 1 and not self.cfg.is_ensemble:
                     # Parallel preprocessing for multiple batches
                     results = Parallel(
-                        n_jobs=self.train_cfg.n_jobs,
-                        batch_size=self.train_cfg.batch_size,
+                        n_jobs=self.train_cfg.batch_size,
+                        backend="threading",
                     )(
                         delayed(self._preprocess_batch)(
                             train_batches[i],
@@ -646,7 +735,7 @@ class GenoEstimator:
                         train_data.cfg.classification,
                         model_cfgs[0],
                         self.train_cfg,
-                        self.cfg.compute_interactions,
+                        False,  # computed post-training in _compute_and_aggregate_interactions
                         self.cfg.use_resids,
                         background_batches[0],
                     )
@@ -660,7 +749,7 @@ class GenoEstimator:
                         train_data.cfg.classification,
                         model_cfgs[i],
                         self.train_cfg,
-                        self.cfg.compute_interactions,
+                        False,  # computed post-training in _compute_and_aggregate_interactions
                         self.cfg.use_resids,
                         background_batches[0],
                     )
@@ -675,16 +764,14 @@ class GenoEstimator:
                         train_data.cfg.classification,
                         model_cfgs[i],
                         self.train_cfg,
-                        self.cfg.compute_interactions,
+                        False,  # computed post-training in _compute_and_aggregate_interactions
                         self.cfg.use_resids,
                         background_batches[i],
                     )
                     for i in range(self.train_cfg.batch_size)
                 ]
             else:
-                results = Parallel(
-                    n_jobs=self.train_cfg.n_jobs, batch_size=self.train_cfg.batch_size
-                )(
+                results = Parallel(n_jobs=self.train_cfg.batch_size, backend="threading")(
                     delayed(GenoEstimator.fit_weak_estimator)(
                         train_batches[i],
                         agg_batches[i],
@@ -692,7 +779,7 @@ class GenoEstimator:
                         train_data.cfg.classification,
                         model_cfgs[i],
                         self.train_cfg,
-                        self.cfg.compute_interactions,
+                        False,  # computed post-training in _compute_and_aggregate_interactions
                         self.cfg.use_resids,
                         background_batches[i],
                     )
@@ -713,27 +800,28 @@ class GenoEstimator:
             metrics["geno_aggregation_scores"].extend(batch_agg_scores)
             metrics["geno_weak_estimator_val"].extend(batch_weak_estimator_val_scores)
 
-            # calibrate aggregator and make strong estimator preds on val
+            # calibrate aggregator using held-out agg set (never train or val)
+            _group_size = self.train_cfg.batch_size if self.cfg.is_ensemble else 1
             if self.cfg.aggregator_config.hold_out_neeeded:
                 self.aggregator.calibrate(
                     agg_scores=metrics["geno_aggregation_scores"],
                     agg_preds=aggregation_preds,
                     agg_labels=agg_labels,
                     agg_sample_weight=agg_sample_weight,
+                    group_size=_group_size,
                 )
             else:
-                self.aggregator.calibrate(agg_scores=metrics["geno_weak_estimator_val"])
+                self.aggregator.calibrate(
+                    agg_scores=metrics["geno_weak_estimator_val"],
+                    group_size=_group_size,
+                )
 
             if val_data:
                 y_val = val_data.get_labels(use_resids=False)  # self.cfg.use_resids
                 batch_strong_estimator_val_pred = self.aggregator(weak_estimator_val_preds)
                 batch_strong_estimator_val_metric = utils.score(
                     y_val,
-                    (
-                        utils.sigmoid(batch_strong_estimator_val_pred)
-                        if val_data.cfg.classification
-                        else batch_strong_estimator_val_pred
-                    ),
+                    batch_strong_estimator_val_pred,  # no sigmoid bc prob space for cls
                     self.train_cfg.scorer,
                     val_data.cfg.classification,
                 )
@@ -770,34 +858,39 @@ class GenoEstimator:
                     if metrics[k]
                 }
 
-                if strong_estimator_metrics:
-                    strong_estimator_metrics["batch_idx"] = batch_idx
-                    wandb.log(strong_estimator_metrics)
-
-                if weak_estimator_metrics:
-                    start_idx = batch_idx * self.train_cfg.batch_size
-                    for i in range(self.train_cfg.batch_size):
-                        estimator_metrics = {k: v[i] for k, v in weak_estimator_metrics.items()}
-                        estimator_metrics["estimator_idx"] = start_idx + i
-                        wandb.log(estimator_metrics)
+                estimator_idx = batch_idx * self.train_cfg.batch_size
+                for i in range(self.train_cfg.batch_size):
+                    log_payload = {"estimator_idx": estimator_idx + i}
+                    if strong_estimator_metrics and i == 0:
+                        log_payload.update(strong_estimator_metrics)
+                    log_payload.update({k: v[i] for k, v in weak_estimator_metrics.items()})
+                    # For ensemble: also log metrics tagged by estimator type
+                    if self.cfg.is_ensemble:
+                        model_name = batch_weak_estimators[i].cfg.model_name
+                        log_payload["estimator_type"] = model_name
+                        for k, v in weak_estimator_metrics.items():
+                            log_payload[f"{k}_{model_name}"] = v[i]
+                    wandb.log(log_payload, step=estimator_idx + i)
 
             # update progress bar
             if val_data:
-                latest_weak_metric = sum(batch_weak_estimator_val_scores) / len(
-                    batch_weak_estimator_val_scores
+                latest_weak_metric = sum(metrics["geno_weak_estimator_val"]) / len(
+                    metrics["geno_weak_estimator_val"]
                 )
                 latest_strong_metric = batch_strong_estimator_val_metric
-                progress_bar.set_description(
-                    f"Batch={batch_idx}: Avg weak {self.train_cfg.scorer}={latest_weak_metric:.4f} - "
-                    f"Strong {self.train_cfg.scorer}={latest_strong_metric:.4f} - "
-                    f"Trained={(batch_idx + 1) * self.train_cfg.batch_size}"
+                desc = (
+                    f"Batch={batch_idx}: Avg weak val {self.train_cfg.scorer}={latest_weak_metric:.4f} - "
+                    f"Strong val {self.train_cfg.scorer}={latest_strong_metric:.4f}"
                 )
-            elif self.cfg.aggregator_config.hold_out_neeeded:
-                latest_weak_metric = sum(metrics["geno_aggregation_scores"]) / len(
-                    metrics["geno_aggregation_scores"]
+                desc += f" - Trained={(batch_idx + 1) * self.train_cfg.batch_size}"
+                progress_bar.set_description(desc)
+            elif metrics["geno_aggregation_scores"]:
+                latest_weak_metric = (
+                    sum(metrics["geno_aggregation_scores"][-self.train_cfg.batch_size :])
+                    / self.train_cfg.batch_size
                 )
                 progress_bar.set_description(
-                    f"Batch={batch_idx}: Avg weak {self.train_cfg.scorer}={latest_weak_metric:.4f} - "
+                    f"Batch={batch_idx}: Avg weak agg {self.train_cfg.scorer}={latest_weak_metric:.4f} - "
                     f"Trained={(batch_idx + 1) * self.train_cfg.batch_size}"
                 )
             else:
@@ -814,20 +907,186 @@ class GenoEstimator:
                 )
                 weak_estimators = weak_estimators[:best_n_estimators]
                 # recalibrate aggregator on selected estimators
+                _group_size = self.train_cfg.batch_size if self.cfg.is_ensemble else 1
                 if self.cfg.aggregator_config.hold_out_neeeded:
                     self.aggregator.calibrate(
                         agg_scores=metrics["geno_aggregation_scores"][:best_n_estimators],
                         agg_preds=aggregation_preds[:best_n_estimators],
                         agg_labels=agg_labels,
                         agg_sample_weight=agg_sample_weight,
+                        group_size=_group_size,
                     )
                 else:
                     self.aggregator.calibrate(
-                        agg_scores=metrics["geno_weak_estimator_val"][:best_n_estimators]
+                        agg_scores=metrics["geno_weak_estimator_val"][:best_n_estimators],
+                        group_size=_group_size,
                     )
+
+        # Discard weak estimators that did not pass the aggregator's filter (e.g.
+        # top-p-percentile). Filtering used to be applied as a boolean mask threaded
+        # through every downstream prediction/SHAP/interaction computation; instead we
+        # physically drop the filtered-out estimators here -- the same way early
+        # stopping above drops batches -- so every downstream consumer of self.model
+        # only ever sees estimators that are actually used.
+        n_final_estimators = len(weak_estimators)
+        final_filter_mask = self.aggregator.filter_mask
+        if final_filter_mask is not None and not final_filter_mask.all():
+            n_keep = int(final_filter_mask.sum())
+            self._logger.info(
+                f"Filter strategy '{self.aggregator.cfg.filter_strat}' selected "
+                f"{n_keep}/{n_final_estimators} weak estimators. Discarding the rest."
+            )
+            weak_estimators = [we for we, keep in zip(weak_estimators, final_filter_mask) if keep]
+            filtered_agg_preds = [
+                p
+                for p, keep in zip(aggregation_preds[:n_final_estimators], final_filter_mask)
+                if keep
+            ]
+            filtered_agg_scores = [
+                s
+                for s, keep in zip(
+                    metrics["geno_aggregation_scores"][:n_final_estimators], final_filter_mask
+                )
+                if keep
+            ]
+            filtered_val_scores = [
+                s
+                for s, keep in zip(
+                    metrics["geno_weak_estimator_val"][:n_final_estimators], final_filter_mask
+                )
+                if keep
+            ]
+
+            # The kept estimators already passed the filter, so recalibrate without
+            # re-filtering: reset filter_mask and temporarily disable filter_strat so
+            # the aggregation strategy (mean / loss-weighted / stacking) is refit on
+            # exactly the surviving estimators instead of re-applying the threshold.
+            self.aggregator.filter_mask = None
+            original_filter_strat = self.aggregator.cfg.filter_strat
+            self.aggregator.cfg.filter_strat = "none"
+            try:
+                if self.cfg.aggregator_config.hold_out_neeeded:
+                    self.aggregator.calibrate(
+                        agg_scores=filtered_agg_scores,
+                        agg_preds=filtered_agg_preds,
+                        agg_labels=agg_labels,
+                        agg_sample_weight=agg_sample_weight,
+                    )
+                else:
+                    self.aggregator.calibrate(agg_scores=filtered_val_scores)
+            finally:
+                self.aggregator.cfg.filter_strat = original_filter_strat
 
         # init final model
         self._init_model(weak_estimators)
+
+        if self.cfg.compute_interactions and self.train_cfg.compute_shap:
+            self._compute_and_aggregate_interactions(train_data, background_sample_idxs)
+
+    def _compute_and_aggregate_interactions(
+        self,
+        train_data: DataSet,
+        background_sample_idxs: npt.NDArray | None,
+        n_samples_shap: int = 2_000,
+        chunk_size: int = 20,
+    ) -> None:
+        """Compute SHAP interaction values post-training for surviving tree estimators."""
+        tree_model_pairs = [
+            (i, m)
+            for i, m in enumerate(self.model)
+            if m.cfg.model_name in ["lightgbm", "xgboost", "catboost"]
+        ]
+        if not tree_model_pairs:
+            return
+
+        filter_mask = self.aggregator.filter_mask
+        if filter_mask is not None:
+            tree_model_pairs = [(i, m) for i, m in tree_model_pairs if filter_mask[i]]
+        if not tree_model_pairs:
+            return
+
+        all_sample_idxs = train_data.phenotype.sample_idxs
+
+        self._logger.info(
+            f"Computing interaction values for {len(tree_model_pairs)} tree estimators sequentially..."
+        )
+
+        interact_dfs = []
+        pbar = tqdm(total=len(tree_model_pairs), desc="Computing interaction values")
+        try:
+            for global_i, model in tree_model_pairs:
+                explain_batch = train_data[all_sample_idxs, model.variant_idxs]
+                bg_batch = (
+                    train_data[background_sample_idxs, model.variant_idxs]
+                    if background_sample_idxs is not None
+                    else None
+                )
+                model.compute_interaction_values(
+                    explain_batch,
+                    background=bg_batch,
+                    n_samples_shap=n_samples_shap,
+                    chunk_size=chunk_size,
+                )
+                variant_idxs = model.variant_idxs
+                interact_values = np.triu(model.interactions, k=1)
+                model.interactions = None
+                nz_rows, nz_cols = np.nonzero(interact_values)
+                if len(nz_rows) > 0:
+                    interact_dfs.append(
+                        pd.DataFrame(
+                            {
+                                "variant_i": variant_idxs[nz_rows],
+                                "variant_j": variant_idxs[nz_cols],
+                                "interact_values": interact_values[nz_rows, nz_cols],
+                                "estimator_idx": global_i,
+                            }
+                        )
+                    )
+                del interact_values
+                pbar.update(1)
+        finally:
+            pbar.close()
+
+        if not interact_dfs:
+            return
+
+        interact_df = pd.concat(interact_dfs, ignore_index=True)
+        interact_df[["variant_i", "variant_j"]] = interact_df[["variant_i", "variant_j"]].apply(
+            lambda x: pd.Series(sorted(x)), axis=1
+        )
+
+        interact_df = (
+            interact_df.groupby(["variant_i", "variant_j"], sort=True)
+            .apply(
+                lambda grp: self.aggregator.aggregate_group(
+                    group=grp,
+                    columns=["interact_values"],
+                    n_estimators=len(self.model),
+                    aggregate_coeffs=False,
+                    filter_mask=filter_mask,
+                ),
+                include_groups=False,
+            )
+            .sort_index()
+            .reset_index()
+        )
+
+        interact_df = interact_df.merge(
+            self.annotation_df.rename(
+                columns={"chr_name": "chr_i", "chr_position": "pos_i", "snp": "snp_i"}
+            )[["chr_i", "pos_i", "snp_i"]],
+            left_on="variant_i",
+            right_index=True,
+            how="left",
+        ).merge(
+            self.annotation_df.rename(
+                columns={"chr_name": "chr_j", "chr_position": "pos_j", "snp": "snp_j"}
+            )[["chr_j", "pos_j", "snp_j"]],
+            left_on="variant_j",
+            right_index=True,
+            how="left",
+        )
+        self.interactions = interact_df
 
     def _weak_estimator_predict(
         self,
@@ -924,36 +1183,54 @@ class GenoEstimator:
         return np.concatenate(all_preds, axis=0)
 
     def predict(
-        self, data_set: DataSet, return_resids: bool = False
-    ) -> Tuple[npt.NDArray, npt.NDArray | None]:
+        self, data_set: DataSet, return_resids: bool = False, min_batch_size: int = 1
+    ) -> Tuple[npt.NDArray, npt.NDArray | None, "dict[str, npt.NDArray] | None"]:
         # predict with weak estimators
         if (self.cfg.model_config.model_type == "linear") and (not self.cfg.is_ensemble):
             preds = self._linear_weak_estimator_safe_predict(data_set)
+            per_type_preds = None
         elif self.train_cfg.backend == "gpu":
             all_preds = []
-            for i in range(len(self.model)):
+            model_iter = tqdm(
+                range(len(self.model)),
+                desc="Predict (Weak estimators)",
+                leave=False,
+            )
+            for i in model_iter:
                 preds = self._weak_estimator_predict(self.model[i], data_set)
                 all_preds.append(preds)
 
             preds = self.aggregator(all_preds)
+            per_type_preds = self._compute_per_type_preds(all_preds)
         else:
             all_preds = []
-            for i in range(0, len(self.model), self.train_cfg.batch_size):
-                batch_estimators = self.model[i : i + self.train_cfg.batch_size]
+            step = (
+                max(self.train_cfg.batch_size, min_batch_size)
+                if not self.cfg.is_ensemble
+                else self.train_cfg.batch_size
+            )
+            total_batches = math.ceil(len(self.model) / step)
+            batch_iter = tqdm(
+                range(0, len(self.model), step),
+                total=total_batches,
+                desc="Predict (Weak estimators)",
+                leave=False,
+            )
+            for i in batch_iter:
+                batch_estimators = self.model[i : i + step]
                 if self.cfg.is_ensemble:
                     variant_idxs = batch_estimators[0].variant_idxs
                     data_batch = data_set[:, variant_idxs]
 
                     batch_preds = []
-                    for (
-                        weak_estimator
-                    ) in batch_estimators:  # do not use parallelism since data is the same
+                    for weak_estimator in batch_estimators:
+                        # do not use parallelism since data is the same
                         pred = self._weak_estimator_predict(weak_estimator, data_set, data_batch)
                         batch_preds.append(pred)
                 else:
                     batch_preds = Parallel(
                         n_jobs=self.train_cfg.n_jobs,
-                        batch_size=self.train_cfg.batch_size,
+                        batch_size=step,
                     )(
                         delayed(self._weak_estimator_predict)(
                             weak_estimator,
@@ -964,52 +1241,68 @@ class GenoEstimator:
                 all_preds.extend(batch_preds)
 
             preds = self.aggregator(all_preds)
+            per_type_preds = self._compute_per_type_preds(all_preds)
 
         resid_preds = preds if return_resids else None
-        geno_preds = utils.sigmoid(preds) if data_set.cfg.classification else preds
+        geno_preds = preds  # no sigmoid bc prob space for cls
 
-        return geno_preds, resid_preds
+        return geno_preds, resid_preds, per_type_preds
+
+    def _compute_per_type_preds(
+        self, all_preds: List[npt.NDArray]
+    ) -> "dict[str, npt.NDArray] | None":
+        if not self.cfg.is_ensemble:
+            return None
+        type_pred_lists: dict[str, list] = {}
+        for i, pred in enumerate(all_preds):
+            name = self.model[i].cfg.model_name
+            type_pred_lists.setdefault(name, []).append(pred)
+        return {name: np.mean(preds_list, axis=0) for name, preds_list in type_pred_lists.items()}
+
+    def _aggregate_local_shap_chunks(
+        self,
+        shap_dfs: List[pd.DataFrame],
+        n_estimators: int,
+        chunk_size: int,
+        filter_mask: npt.NDArray | None = None,
+    ) -> pd.DataFrame:
+        concat_df = pd.concat(shap_dfs, ignore_index=False)
+        variant_idxs = [c for c in concat_df.columns if c != "estimator_idx"]
+        chunks = []
+        print(
+            f"Aggregating chunk with n_estimatos={n_estimators} and filter_mask of shap {filter_mask.shape if filter_mask is not None else 'None'}"
+        )
+        for start_idx in range(0, len(variant_idxs), chunk_size):
+            end_idx = min(start_idx + chunk_size, len(variant_idxs))
+            chunk_variant_idxs = variant_idxs[start_idx:end_idx]
+            chunk_columns = chunk_variant_idxs + ["estimator_idx"]
+            chunk_df = concat_df[chunk_columns].copy()
+            chunk_shap_df = (
+                chunk_df.groupby(level=0, sort=True)
+                .apply(
+                    lambda grp: self.aggregator.aggregate_group(
+                        group=grp,
+                        n_estimators=n_estimators,
+                        columns=chunk_variant_idxs,
+                        aggregate_coeffs=True,
+                        filter_mask=filter_mask,
+                    ),
+                    include_groups=False,
+                )
+                .sort_index()
+            )
+            chunks.append(chunk_shap_df)
+        return pd.concat(chunks, axis=1)
 
     def compute_local_shap(
         self,
         data_set: DataSet,
-        *,
-        seed: int = 42,
-        sample_idxs: npt.NDArray | slice | None = None,
         background_samples: int = 500,
-        n_samples: int = 2_000,
+        seed: int = 42,
+        *,
+        sample_idxs: npt.NDArray | slice = slice(None),
         chunk_size: int = 2_000,
-    ) -> pd.DataFrame:
-        if sample_idxs is None:
-            rng = np.random.default_rng(seed)
-            all_sample_idxs = data_set.phenotype.sample_idxs
-            phenotypes = data_set.get_labels()
-
-            if data_set.cfg.classification:
-                # Binary classification: use only cases (phenotype == 1), up to n_samples
-                case_mask = phenotypes == 1
-                case_idxs = all_sample_idxs[case_mask]
-
-                if len(case_idxs) > n_samples:
-                    sample_idxs = rng.choice(case_idxs, size=n_samples, replace=False)
-                else:
-                    sample_idxs = case_idxs
-            else:  # use adaptive_sampling to sample n_samples
-                from ...data.data_set import utils as data_set_utils
-
-                sample_idxs = data_set_utils.adaptive_sampling(
-                    sample_idxs=all_sample_idxs,
-                    phenotypes=phenotypes,
-                    classification=data_set.cfg.classification,
-                    size=n_samples,
-                    rng=rng,
-                )
-        elif isinstance(sample_idxs, slice):
-            sample_idxs = data_set.phenotype.sample_idxs[sample_idxs]
-            sample_idxs = np.asarray(sample_idxs)
-        else:
-            sample_idxs = np.asarray(sample_idxs)
-
+    ) -> dict[str, pd.DataFrame]:
         sample_idxs = np.sort(sample_idxs).astype(np.uint32)
         assert (
             len(data_set) >= background_samples
@@ -1041,41 +1334,44 @@ class GenoEstimator:
                 we_shap_values[i], columns=model.variant_idxs, index=sample_idxs
             )
             we_shap_df["estimator_idx"] = i
-
             we_shap_dfs.append(we_shap_df)
 
-        agg_shap_df = pd.concat(we_shap_dfs, ignore_index=False)
-        variant_idxs = [
-            variant_idx for variant_idx in agg_shap_df.columns if variant_idx != "estimator_idx"
-        ]
-        chunks = []
-        for start_idx in range(0, len(variant_idxs), chunk_size):
-            end_idx = min(start_idx + chunk_size, len(variant_idxs))
-            chunk_variant_idxs = variant_idxs[start_idx:end_idx]
-            chunk_columns = chunk_variant_idxs + ["estimator_idx"]
+        ensemble_df = self._aggregate_local_shap_chunks(we_shap_dfs, len(self.model), chunk_size)
+        ensemble_df["iid"] = ensemble_df.index.map(data_set.phenotype.annotation_df["iid"])
+        result = {"ensemble": ensemble_df}
 
-            chunk_df = agg_shap_df[chunk_columns].copy()
-
-            chunk_shap_df = (
-                chunk_df.groupby(level=0, sort=True)
-                .apply(
-                    lambda grp: self.aggregator.aggregate_group(
-                        group=grp,
-                        n_estimators=len(self.model),
-                        columns=chunk_variant_idxs,
-                        aggregate_coeffs=True,  # do not add offset for stacking
-                    ),
-                    include_groups=False,
+        if self.cfg.is_ensemble:
+            linear_idxs = [i for i, m in enumerate(self.model) if m.cfg.model_type == "linear"]
+            nonlinear_idxs = [i for i, m in enumerate(self.model) if m.cfg.model_type != "linear"]
+            for group_name, group_idxs in [("linear", linear_idxs), ("nonlinear", nonlinear_idxs)]:
+                if not group_idxs:
+                    continue
+                # Build type_mask (global length) and AND with filter_mask so that
+                # filtered-out estimators remain excluded in the per-type aggregation.
+                type_mask = np.zeros(len(self.model), dtype=bool)
+                for global_i in group_idxs:
+                    type_mask[global_i] = True
+                group_filter_mask = (
+                    type_mask & self.aggregator.filter_mask
+                    if self.aggregator.filter_mask is not None
+                    else type_mask
                 )
-                .sort_index()
-            )
+                group_shap_dfs = []
+                for global_i in group_idxs:
+                    df = pd.DataFrame(
+                        we_shap_values[global_i],
+                        columns=self.model[global_i].variant_idxs,
+                        index=sample_idxs,
+                    )
+                    df["estimator_idx"] = global_i
+                    group_shap_dfs.append(df)
+                group_df = self._aggregate_local_shap_chunks(
+                    group_shap_dfs, len(self.model), chunk_size, filter_mask=group_filter_mask
+                )
+                group_df["iid"] = group_df.index.map(data_set.phenotype.annotation_df["iid"])
+                result[group_name] = group_df
 
-            chunks.append(chunk_shap_df)
-        agg_shap_df = pd.concat(chunks, axis=1)
-        agg_shap_df["iid"] = agg_shap_df.index.map(data_set.phenotype.annotation_df["iid"])
-        agg_shap_df.columns = agg_shap_df.columns.map(str)
-
-        return agg_shap_df
+        return result
 
     def get_interactions(
         self,

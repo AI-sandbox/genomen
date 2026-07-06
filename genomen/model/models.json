@@ -64,11 +64,6 @@
             "supp_tasks": ["regression"],
             "init_params": []
         },
-        "simple_mlp": {
-            "model_type": "dnn",
-            "supp_tasks": ["classification", "regression"],
-            "init_params": []
-        },
         "linear": {
             "model_type": "linear",
             "supp_tasks": ["classification", "regression"],

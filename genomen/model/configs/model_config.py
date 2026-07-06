@@ -29,11 +29,17 @@ class ModelConfig:
         },
     )
     # Helper, will be filled automatically
-    model_type: Literal["linear", "tree", "dnn", "ensemble", "other"] | None = field(
+    model_type: Literal["linear", "tree", "ensemble", "other"] | None = field(
         default=None, metadata={"help": "Type of the model"}
     )
     linear: Optional[bool] = field(
         default=None, metadata={"help": "Whether the model is linear model or not"}
+    )
+    use_offset: bool = field(
+        default=False,
+        metadata={
+            "help": "Use covar predictions as LGBM init_score instead of fitting on residualized labels (lightgbm only)."
+        },
     )
     classification: Optional[bool] = field(
         default=None,
@@ -150,18 +156,8 @@ class AggregatorConfig:
         default="none",
         metadata={"help": "Method to filter models before aggregation"},
     )
-    agg_strat: Literal["mean", "rank-mean", "loss-weighted-average", "stacking"] = field(
+    agg_strat: Literal["mean", "rank-mean", "loss-weighted-average"] = field(
         default="mean", metadata={"help": "Method to aggregate predictions"}
-    )
-    model_config: ModelConfig = field(
-        default_factory=ModelConfig,
-        metadata={"help": "Model config of model used for stacking."},
-    )
-    use_summary_stats: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether to use summary statistics during aggregation. Can only be used when using 'agg_strat=stacking'."
-        },
     )
     p: float = field(
         default=0.75,
@@ -175,6 +171,12 @@ class AggregatorConfig:
             "help": "Temperature of softmax to compute estimator weights when mode 'loss-weighted-average' is selected."
         },
     )
+    pos_thresh: float | None = field(
+        default=None,
+        metadata={
+            "help": "Minimum score above which an estimator is classified as positively contributing to predictive performance."
+        },
+    )
     # Helper, will be filled automatically
     hold_out_neeeded: bool = field(
         default=False,
@@ -185,10 +187,10 @@ class AggregatorConfig:
         if self.filter_strat == "positive" and self.p is None:
             raise ValueError("Must provide a value for p when using positive filter")
 
-        self.hold_out_neeeded = self.agg_strat == "stacking"
+        self.hold_out_neeeded = (
+            self.filter_strat != "none" or self.agg_strat == "loss-weighted-average"
+        )
 
-        if self.agg_strat == "stacking" and self.model_config is None:
-            raise ValueError("Must provide a value for stacking_model when using mode 'stacking'")
         if self.agg_strat == "loss-weighted-average" and self.temp is None:
             raise ValueError(
                 "Must provide a value for temperature when using mode 'loss-weighted-average'"
@@ -261,7 +263,7 @@ class GenomenModelConfig(BaseConfig):
     ram_mb: int = field(default=16_000, metadata={"help": "Total available RAM in MB"})
 
     def __post_init__(self):
-        # set use_resids
+        # set use_resids and use_offset
         self.geno_config.use_resids = self.include_covars and (
             self.covar_config.covar_strat == "residualization"
         )
@@ -274,20 +276,21 @@ class GenomenModelConfig(BaseConfig):
 
         # init classification parameter based on on_resid
         self.covar_config.model_config.classification = self.classification
+        # Models using use_offset train on original labels, so they retain the classification flag.
+        # Models in residualization mode train on continuous residuals (regression task).
         self.geno_config.model_config.classification = self.classification and (
-            not self.geno_config.use_resids
+            not self.geno_config.use_resids or self.geno_config.model_config.use_offset
         )
-        self.geno_config.aggregator_config.model_config.classification = (
-            self.geno_config.model_config.classification
-        )
+
+        # init pos_thresh
+        if self.geno_config.aggregator_config.pos_thresh is None:
+            self.geno_config.aggregator_config.pos_thresh = 0.5 if self.classification else 0.0
 
         # pass down backend parameter to model_configs
         self.covar_config.model_config.backend = self.backend
         self.covar_config.model_config.ram_mb = self.ram_mb
         self.geno_config.model_config.backend = self.backend
         self.geno_config.model_config.ram_mb = self.ram_mb
-        self.geno_config.aggregator_config.model_config.backend = self.backend
-        self.geno_config.aggregator_config.model_config.ram_mb = self.ram_mb
 
         self.geno_config.preprocessing_needed = (
             self.geno_config.preprocessing_config.standard_labels

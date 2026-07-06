@@ -38,8 +38,7 @@ def kfold(
                 covar_cfg=data_set.cfg.covar_config,
             )
 
-            train_genotype = GenoSet(
-                pgen_reader=data_set.genotype.pgen_reader,
+            train_genotype = data_set.genotype.fork(
                 annotation_df=data_set.genotype.annotation_df,
                 n_samples=len(train_pheno_annotation_df),
             )
@@ -56,8 +55,7 @@ def kfold(
                 covar_cfg=data_set.cfg.covar_config,
             )
 
-            test_genotype = GenoSet(
-                pgen_reader=data_set.genotype.pgen_reader,
+            test_genotype = data_set.genotype.fork(
                 annotation_df=data_set.genotype.annotation_df,
                 n_samples=len(test_pheno_annotation_df),
             )
@@ -86,6 +84,7 @@ def kfold(
                 pheno_annotation=train_pheno_annotation_df,
                 residuals=resid_train,
                 scaler=data_set.scaler,
+                type=data_set.type,
             )
 
             # Create train set - use the actual indices directly
@@ -102,6 +101,7 @@ def kfold(
                 pheno_annotation=test_pheno_annotation_df,
                 residuals=resid_test,
                 scaler=data_set.scaler,
+                type=data_set.type,
             )
 
             data_splits.append((train_batch, test_batch))

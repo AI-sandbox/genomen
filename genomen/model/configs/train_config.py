@@ -19,9 +19,7 @@ class TrainConfig(BaseConfig):
     )
     backend: Literal["cpu", "gpu"] = field(
         default="cpu",
-        metadata={
-            "help": "Backend to use for training. For DNN models, GPU is automatically selected."
-        },
+        metadata={"help": "Backend to use for training."},
     )
     ram_mb: int = field(default=16_000, metadata={"help": "Total available RAM in MB"})
     scorer: Literal["r2", "rocauc", "pearson_corr"] | None = field(
@@ -45,6 +43,15 @@ class TrainConfig(BaseConfig):
     )
     compute_shap: bool = field(
         default=False, metadata={"help": "Whether to compute shap values during fit"}
+    )
+
+    n_cv_folds: int = field(
+        default=0,
+        metadata={
+            "help": "Number of cross-validation folds for OOF estimator scoring. "
+            "When > 0, replaces the agg_data hold-out split for filter and loss-weighted-average "
+            "strategies with K-fold OOF scores on the training batch. 0 disables CV (uses agg_data split)."
+        },
     )
 
     def __post_init__(self):

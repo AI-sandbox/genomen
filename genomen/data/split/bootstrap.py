@@ -34,8 +34,7 @@ def bootstrap(
         covar_cfg=data_set.cfg.covar_config,
     )
 
-    train_genotype = GenoSet(
-        pgen_reader=data_set.genotype.pgen_reader,
+    train_genotype = data_set.genotype.fork(
         annotation_df=data_set.genotype.annotation_df.copy(),
         n_samples=len(bootstrapped_pheno_annotation_df),
     )

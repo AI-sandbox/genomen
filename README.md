@@ -36,9 +36,6 @@ pip install genomen[dev]
 
 # GPU support (CUDA 12)
 pip install genomen[gpu]
-
-# Deep neural network support
-pip install genomen[dnn]
 ```
 
 ## Quick Start
@@ -68,12 +65,11 @@ For detailed documentation, tutorials, and examples, please visit the [official 
 If you use GenomEn in your research, please cite:
 
 ```bibtex
-@article{Thomassin2025,
-  title={Polygenic risk and association beyond linearity},
-  author={First Author and Second Author and Third Author},
-  journal={Conference/Journal Name},
-  year={2024},
-  url={https://your-domain.com/your-project-page}
+@article{Thomassin2026,
+  title   = {Biobank-scale Polygenic Risk Prediction with Nonlinear Estimators},
+  author  = {Thomassin, Christophe and Franquesa Mon{\'e}s, Marc and Bonet, David and Gerlach, Peter A. and Comajoan Cara, Mar{\c{c}}al and Mas Montserrat, Daniel and Ioannidis, Alexander G.},
+  year    = {2026},
+  url     = {https://genomen-website.vercel.app/docs}
 }
 ```
 

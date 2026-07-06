@@ -9,7 +9,6 @@ import pandas as pd
 from ... import utils
 from .. import utils as model_utils
 from ..configs import AggregatorConfig
-from ..weak_estimator import WeakEstimator
 
 
 class GenoAggregator:
@@ -30,35 +29,39 @@ class GenoAggregator:
         self.agg_weights: npt.NDArray = np.array([], dtype=float)
         self.eps = 1e-7
 
-    def _filter(self):
+    def _filter(self, group_size: int = 1):
         if (self.cfg.filter_strat != "none") and (self.agg_scores is None):
             raise ValueError("Have to provide metrics on validation set to use filter!")
 
+        # For ensemble models, filter at the group (pair) level so that all members
+        # of a logical estimator are kept or discarded together.
+        if group_size > 1:
+            n_total = len(self.agg_scores)
+            n_groups = n_total // group_size
+            group_scores = (
+                self.agg_scores[: n_groups * group_size].reshape(n_groups, group_size).mean(axis=1)
+            )
+        else:
+            group_scores = self.agg_scores
+
         match self.cfg.filter_strat:
             case "none":
-                filter_mask = np.full(len(self.agg_scores), True, dtype=bool)
+                group_mask = np.full(len(group_scores), True, dtype=bool)
             case "positive":
-                if self.scorer is None:
-                    raise ValueError("Need to specify scorer for 'positive' filter!")
-                if self.scorer == "rocauc":
-                    threshold = 0.5
-                elif self.scorer == "r2":
-                    threshold = 0.0
-                else:
-                    raise ValueError(f"Scoer {self.scorer} not supported for 'positive' filter!")
-                filter_mask = self.agg_scores >= threshold
+                threshold = self.cfg.pos_thresh
+                group_mask = group_scores >= threshold
             case "geq-average":
-                threshold = np.mean(self.agg_scores)
-                filter_mask = self.agg_scores >= threshold
+                threshold = np.mean(group_scores)
+                group_mask = group_scores >= threshold
             case "top-p-percentile":
-                threshold = np.percentile(self.agg_scores, self.cfg.p)
-                filter_mask = self.agg_scores >= threshold
+                threshold = np.percentile(group_scores, self.cfg.p * 100)
+                group_mask = group_scores >= threshold
 
-        if not np.any(filter_mask):
+        if not np.any(group_mask):
             self._logger.warning("No models passed the filtering criteria. Skipping filtering...")
-            filter_mask = np.full(len(self.agg_scores), True, dtype=bool)
+            group_mask = np.full(len(group_scores), True, dtype=bool)
 
-        self.filter_mask = filter_mask
+        self.filter_mask = np.repeat(group_mask, group_size) if group_size > 1 else group_mask
 
     def _update_loss_weights(self):
         """Update the weights based on current validation results."""
@@ -97,12 +100,22 @@ class GenoAggregator:
         self,
         values: List[npt.NDArray] | npt.NDArray,
         filter_mask: npt.NDArray | None = None,
+        aggregate_coeffs: bool = False,
         **kwargs,
     ):
         X = self._to2D(values)
 
         if filter_mask is not None:
             X = X[filter_mask]
+
+        if aggregate_coeffs:
+            # A NaN means this estimator never had this variant — i.e. zero
+            # contribution to its own prediction, not missing data to exclude
+            # from the average. Zero-fill and divide by the full (filtered)
+            # estimator count, so folding coefficients reproduces exactly what
+            # averaging each estimator's own complete prediction would give
+            # (same zero-fill convention: NaN = zero contribution, not missing).
+            return np.nan_to_num(X, nan=0.0).mean(axis=0)
 
         return model_utils.safe_nanmean(X, axis=0, fill_value=0.0)
 
@@ -130,6 +143,7 @@ class GenoAggregator:
         values: List[npt.NDArray] | npt.NDArray,
         weights: npt.NDArray,
         filter_mask: npt.NDArray | None = None,
+        aggregate_coeffs: bool = False,
         **kwargs,
     ):
         X = self._to2D(values)
@@ -140,37 +154,21 @@ class GenoAggregator:
         else:
             w = weights
 
-        nan_mask = ~np.isnan(X)
         X_imputed = np.nan_to_num(X, nan=0.0)
         num = (X_imputed * w[:, None]).sum(axis=0)
-        denom = (nan_mask * w[:, None]).sum(axis=0)
-        denom = np.where(denom == 0.0, 1.0, denom)
-
-        return num / denom  # (n_values,)
-
-    def _stack(
-        self,
-        values: List[npt.NDArray] | npt.NDArray,
-        stacking_model: WeakEstimator,
-        filter_mask: npt.NDArray | None = None,
-        aggregate_coeffs: bool = False,
-    ):
-        X = self._to2D(values)
-        X = np.nan_to_num(X, nan=0.0)
 
         if aggregate_coeffs:
-            coeffs = X[filter_mask] if filter_mask is not None else X
-            w = stacking_model.model.coef_.ravel()  # (n_est,)
-            w = w[: coeffs.shape[0]]
+            # Same zero-fill convention as _simple_mean: a NaN is zero
+            # contribution, not missing data, so divide by the full weight
+            # total rather than only the weight of estimators with this variant.
+            denom = w.sum()
+            denom = denom if denom != 0.0 else 1.0
+        else:
+            nan_mask = ~np.isnan(X)
+            denom = (nan_mask * w[:, None]).sum(axis=0)
+            denom = np.where(denom == 0.0, 1.0, denom)
 
-            return np.tensordot(coeffs.T, w, axes=(1, 0))
-
-        if filter_mask is not None:
-            X = X[filter_mask]
-        if self.cfg.classification:
-            X = utils.get_logits(X, self.eps)
-
-        return stacking_model.predict(X.T)  # (n_values,)
+        return num / denom  # (n_values,)
 
     def calibrate(
         self,
@@ -178,6 +176,7 @@ class GenoAggregator:
         agg_preds: List[npt.NDArray] | None = None,
         agg_labels: npt.NDArray | None = None,
         agg_sample_weight: npt.NDArray | None = None,
+        group_size: int = 1,
     ):
         if isinstance(agg_scores, (float, int, np.number)):
             agg_scores = [float(agg_scores)]
@@ -186,7 +185,7 @@ class GenoAggregator:
 
         # Update filter mask based on current validation results
         if self.cfg.filter_strat != "none":
-            self._filter()
+            self._filter(group_size=group_size)
 
         if self.cfg.agg_strat == "loss-weighted-average":
             self._update_loss_weights()
@@ -207,32 +206,6 @@ class GenoAggregator:
                     weights=self.agg_weights,
                     filter_mask=self.filter_mask,
                 )
-            case "stacking":
-                if (agg_preds is None) or (agg_labels is None):
-                    raise ValueError(
-                        "Aggregation.agg_strat 'stacking' requires aggregation predictions and labels as input to calibration"
-                    )
-
-                X = np.column_stack(agg_preds)
-                y = agg_labels
-
-                # apply filter
-                if self.filter_mask is not None:
-                    X = X[:, self.filter_mask]
-
-                # transform classification to logit space
-                if self.cfg.classification:
-                    X = utils.get_logits(X, self.eps)
-
-                self.stacking_model = WeakEstimator(self.cfg.model_config)
-                self.stacking_model.fit(X, y, sample_weight=agg_sample_weight)
-
-                self._aggregation_fn = partial(
-                    self._stack,
-                    stacking_model=self.stacking_model,
-                    filter_mask=self.filter_mask,
-                )
-
             case _:
                 raise ValueError(f"Invalid aggregation strat {self.cfg.agg_strat}")
 
@@ -268,13 +241,27 @@ class GenoAggregator:
         columns: List[str],
         aggregate_coeffs: bool = False,
         idx_col: str = "estimator_idx",
+        filter_mask: npt.NDArray | None = None,
     ) -> pd.Series:
         est_idx = group[idx_col].to_numpy(dtype=int)
         X_sparse = group[columns].to_numpy(dtype=float)  # (n_col_est, n_values)
         X = np.full((n_estimators, X_sparse.shape[1]), np.nan)  # (n_est, n_values)
         X[est_idx, :] = X_sparse  # (n_est, n_values)
 
-        agg = self._aggregation_fn(X, aggregate_coeffs=aggregate_coeffs)  # (n_values)
+        if filter_mask is not None:
+            # Caller supplies a pre-projected mask (AND of global filter + group membership).
+            # Unwrap the partial to replace the baked-in global mask with this local one.
+            fn = self._aggregation_fn
+            if isinstance(fn, partial):
+                base_fn = fn.func
+                extra_kwargs = {k: v for k, v in fn.keywords.items() if k != "filter_mask"}
+                agg = base_fn(
+                    X, aggregate_coeffs=aggregate_coeffs, filter_mask=filter_mask, **extra_kwargs
+                )
+            else:
+                agg = fn(X, aggregate_coeffs=aggregate_coeffs, filter_mask=filter_mask)
+        else:
+            agg = self._aggregation_fn(X, aggregate_coeffs=aggregate_coeffs)  # (n_values)
         return pd.Series(agg, index=columns)
 
     def reset(self):

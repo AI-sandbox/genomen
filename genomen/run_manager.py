@@ -33,13 +33,13 @@ class RunManager:
         """Initialize the path for this run."""
         load_dotenv()
 
-        if "GENOMEN_RESULT_PATH" not in os.environ:
+        if "RESULT_PATH" not in os.environ:
             raise EnvironmentError(
-                "GENOMEN_RESULT_PATH environment variable is not set. "
-                "Please add GENOMEN_RESULT_PATH to your .env file or environment variables."
+                "RESULT_PATH environment variable is not set. "
+                "Please add RESULT_PATH to your .env file or environment variables."
             )
 
-        base_path = os.path.abspath(os.environ["GENOMEN_RESULT_PATH"])
+        base_path = os.environ["RESULT_PATH"]
 
         if run_dir is None:
             run_dir = self.run_id
@@ -47,7 +47,7 @@ class RunManager:
             run_dir = run_dir + "_" + self.run_id
 
         self.base_path = base_path
-        self.run_path = os.path.join(base_path, run_dir)
+        self.run_path = os.path.join(base_path, "genomen", run_dir)
         os.makedirs(self.run_path, exist_ok=True)
 
         self._logger.info(f"Initialized result path for run: {self.run_path}")
@@ -67,7 +67,7 @@ class RunManager:
 
         # Create new path with the new run directory name
         new_run_dir = new_run_dir + "_" + self.run_id
-        new_run_path = os.path.join(self.base_path, new_run_dir)
+        new_run_path = os.path.join(self.base_path, "genomen", new_run_dir)
 
         # Skip if the paths are identical
         if new_run_path == self.run_path:
