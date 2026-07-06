@@ -21,9 +21,7 @@ class BaseConfig:
                 original_values[key] = getattr(self, key)
                 setattr(self, key, value)
             else:
-                raise AttributeError(
-                    f"'{self.__class__.__name__}' has no attribute '{key}'"
-                )
+                raise AttributeError(f"'{self.__class__.__name__}' has no attribute '{key}'")
 
         try:
             yield

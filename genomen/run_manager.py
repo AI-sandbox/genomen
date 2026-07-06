@@ -76,9 +76,7 @@ class RunManager:
         # Check if new directory exists and is empty
         if os.path.exists(new_run_path):
             if len(os.listdir(new_run_path)) > 0:
-                self._logger.warning(
-                    f"Directory {new_run_path} already exists and is not empty."
-                )
+                self._logger.warning(f"Directory {new_run_path} already exists and is not empty.")
                 return self.run_path
         else:
             os.makedirs(new_run_path, exist_ok=True)

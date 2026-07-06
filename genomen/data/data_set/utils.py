@@ -52,7 +52,7 @@ def adaptive_sampling(
     k: int | None = None,
     strategy: Literal["stratified", "balanced"] = "stratified",
     rng: np.random.Generator = None,
-    n_bins: int = 10
+    n_bins: int = 10,
 ) -> npt.NDArray[np.uint32]:
     """Perform adaptive sampling based on binary phenotypes.
 
@@ -84,9 +84,7 @@ def adaptive_sampling(
             n_control = size - n_case
 
             # Sample with replacement if not enough samples available
-            case_samples = rng.choice(
-                case_idxs, size=n_case, replace=n_case > len(case_idxs)
-            )
+            case_samples = rng.choice(case_idxs, size=n_case, replace=n_case > len(case_idxs))
             control_samples = rng.choice(
                 control_idxs, size=n_control, replace=n_control > len(control_idxs)
             )
@@ -97,23 +95,23 @@ def adaptive_sampling(
             # k:1 balanced sampling (k controls per case)
             if size is not None:
                 n_case = min(len(case_idxs), size // 2)
-            else: 
+            else:
                 n_case = len(case_idxs)
             n_control_desired = min(len(control_idxs), k * n_case)
 
             # Use all cases and sample controls
             if n_control_desired > 0 and len(control_idxs) > 0:
-                control_samples = rng.choice(
-                    control_idxs, size=n_control_desired, replace=False
-                )
+                control_samples = rng.choice(control_idxs, size=n_control_desired, replace=False)
                 return np.concatenate([case_idxs, control_samples])
             else:
                 return case_idxs
         else:
             raise ValueError(f"Unknown sampling strategy {strategy} for classification phenotype")
-    else: # continuous phenotype
-        if np.allclose(phenotypes, phenotypes[0]): # if constant, fallback to random sampling
-            return rng.choice(sample_idxs, size=size, replace=len(sample_idxs) < size).astype(np.uint32)
+    else:  # continuous phenotype
+        if np.allclose(phenotypes, phenotypes[0]):  # if constant, fallback to random sampling
+            return rng.choice(sample_idxs, size=size, replace=len(sample_idxs) < size).astype(
+                np.uint32
+            )
 
         n_bins = max(2, min(n_bins, len(sample_idxs)))
         kbd = KBinsDiscretizer(n_bins=n_bins, encode="ordinal", strategy="quantile")

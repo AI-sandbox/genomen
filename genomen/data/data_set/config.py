@@ -30,9 +30,7 @@ class CovarConfig:
             "Global_PC9",
             "Global_PC10",
         ],
-        metadata={
-            "help": "List of covar keys to use. Keys must be present in master file"
-        },
+        metadata={"help": "List of covar keys to use. Keys must be present in master file"},
     )
 
 
@@ -68,7 +66,7 @@ class SampleSamplingConfig:
         default=True,
         metadata={
             "help": "If True, the balanced/stratified sample draw is fixed across all patches (same samples every estimator). "
-                    "If False, each patch draws a fresh balanced sample using its own batch seed, increasing ensemble diversity."
+            "If False, each patch draws a fresh balanced sample using its own batch seed, increasing ensemble diversity."
         },
     )
 
@@ -88,13 +86,9 @@ class VariantSamplingConfig:
 @dataclass
 class DataSetConfig(BaseConfig):
     phenotype_id: str = field(
-        metadata={
-            "help": "ID of the phenotype to analyze. Must be column in 'master' file."
-        }
+        metadata={"help": "ID of the phenotype to analyze. Must be column in 'master' file."}
     )
-    classification: bool = field(
-        metadata={"help": "Whether phenotype is binary or continuous"}
-    )
+    classification: bool = field(metadata={"help": "Whether phenotype is binary or continuous"})
     file_format: Literal["plink"] = field(
         default="plink",
         metadata={"help": "File format of input. Only accepts 'plink' for now."},
@@ -116,14 +110,12 @@ class DataSetConfig(BaseConfig):
         default=0.05,
         metadata={
             "help": "Maximum per-variant missing call rate allowed. Variants with a higher missing "
-                    "rate on the train samples are dropped. If 1.0, variants are not filtered wrt to missingness."
+            "rate on the train samples are dropped. If 1.0, variants are not filtered wrt to missingness."
         },
     )
     sex: Literal["m", "w"] | None = field(
         default=None,
-        metadata={
-            "help": "Wether to filter for a specific sex. If None, no filter is set."
-        }
+        metadata={"help": "Wether to filter for a specific sex. If None, no filter is set."},
     )
     covar_config: CovarConfig = field(
         default_factory=CovarConfig, metadata={"help": "Covar configuration"}
@@ -148,7 +140,9 @@ class DataSetConfig(BaseConfig):
     )
     simulate: bool = field(
         default=False,
-        metadata={"help": "Whether phenotype will be simulated. If True, phenotype_id does not need to exist in the master file."},
+        metadata={
+            "help": "Whether phenotype will be simulated. If True, phenotype_id does not need to exist in the master file."
+        },
     )
 
     def __post_init__(self):

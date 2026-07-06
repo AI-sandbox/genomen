@@ -13,9 +13,7 @@ from ...base_config import BaseConfig
 
 @dataclass
 class ModelConfig:
-    model_name: str = field(
-        default="lightgbm", metadata={"help": "Name of the model to be used"}
-    )
+    model_name: str = field(default="lightgbm", metadata={"help": "Name of the model to be used"})
     hyperparameters: Dict[str, Any] | Dict[str, Dict[str, Any]] = field(
         default_factory=dict,
         metadata={"help": "Dictionary of hyperparameters for the model"},
@@ -39,7 +37,9 @@ class ModelConfig:
     )
     use_offset: bool = field(
         default=False,
-        metadata={"help": "Use covar predictions as LGBM init_score instead of fitting on residualized labels (lightgbm only)."},
+        metadata={
+            "help": "Use covar predictions as LGBM init_score instead of fitting on residualized labels (lightgbm only)."
+        },
     )
     classification: Optional[bool] = field(
         default=None,
@@ -50,9 +50,7 @@ class ModelConfig:
     init_params: List[str] = field(
         default_factory=list, metadata={"help": "List of parameters linear model has"}
     )
-    seed: Optional[int] = field(
-        default=None, metadata={"help": "Random seed for reproducibility"}
-    )
+    seed: Optional[int] = field(default=None, metadata={"help": "Random seed for reproducibility"})
     model_id: int = field(
         default=-1, metadata={"help": "Int identifying model in strong estimator"}
     )
@@ -112,9 +110,9 @@ class CovarConfig:
 
 @dataclass
 class FeatureSelectionConfig:
-    method: Literal[
-        "none", "k_best", "percentile", "variance_threshold", "mutual_info", "rfe"
-    ] = field(default="none", metadata={"help": "Feature selection method to use"})
+    method: Literal["none", "k_best", "percentile", "variance_threshold", "mutual_info", "rfe"] = (
+        field(default="none", metadata={"help": "Feature selection method to use"})
+    )
     k: int = field(
         default=1000,
         metadata={"help": "Number of features to select (for k_best and rfe methods)"},
@@ -129,11 +127,9 @@ class FeatureSelectionConfig:
             "help": "Minimum variance threshold for features (for variance_threshold method)"
         },
     )
-    score_func: Literal["f_classif", "f_regression", "r_regression", "chi2"] | None = (
-        field(
-            default=None,
-            metadata={"help": "Score function for univariate feature selection"},
-        )
+    score_func: Literal["f_classif", "f_regression", "r_regression", "chi2"] | None = field(
+        default=None,
+        metadata={"help": "Score function for univariate feature selection"},
     )
 
 
@@ -156,14 +152,12 @@ class GenoPreprocessingConfig:
 
 @dataclass
 class AggregatorConfig:
-    filter_strat: Literal["none", "positive", "geq-average", "top-p-percentile"] = (
-        field(
-            default="none",
-            metadata={"help": "Method to filter models before aggregation"},
-        )
+    filter_strat: Literal["none", "positive", "geq-average", "top-p-percentile"] = field(
+        default="none",
+        metadata={"help": "Method to filter models before aggregation"},
     )
-    agg_strat: Literal["mean", "rank-mean", "loss-weighted-average"] = (
-        field(default="mean", metadata={"help": "Method to aggregate predictions"})
+    agg_strat: Literal["mean", "rank-mean", "loss-weighted-average"] = field(
+        default="mean", metadata={"help": "Method to aggregate predictions"}
     )
     p: float = field(
         default=0.75,
@@ -194,8 +188,7 @@ class AggregatorConfig:
             raise ValueError("Must provide a value for p when using positive filter")
 
         self.hold_out_neeeded = (
-            self.filter_strat != "none"
-            or self.agg_strat == "loss-weighted-average"
+            self.filter_strat != "none" or self.agg_strat == "loss-weighted-average"
         )
 
         if self.agg_strat == "loss-weighted-average" and self.temp is None:
@@ -210,7 +203,10 @@ class GenoConfig:
         default=128, metadata={"help": "Number of estimators in the ensemble"}
     )
     compute_interactions: bool = field(
-        default=False, metadata={"help": "Whether to include compue interactions when computing global shap values."}
+        default=False,
+        metadata={
+            "help": "Whether to include compue interactions when computing global shap values."
+        },
     )
     preprocessing_config: Optional[GenoPreprocessingConfig] = field(
         default_factory=GenoPreprocessingConfig,
@@ -229,9 +225,7 @@ class GenoConfig:
     )
     use_resids: bool = field(
         default=False,
-        metadata={
-            "help": "Whether geno model has to be fitted on residualized labels."
-        },
+        metadata={"help": "Whether geno model has to be fitted on residualized labels."},
     )
     is_ensemble: bool = field(
         default=False, metadata={"help": "Whether genotype model is an ensemble"}
@@ -240,9 +234,7 @@ class GenoConfig:
 
 @dataclass
 class GenomenModelConfig(BaseConfig):
-    classification: bool = field(
-        metadata={"help": "Whether phenotype is binary or continuous"}
-    )
+    classification: bool = field(metadata={"help": "Whether phenotype is binary or continuous"})
     covar_config: Optional[CovarConfig] = field(
         default_factory=CovarConfig, metadata={"help": "Config for fitting covariates"}
     )
@@ -278,13 +270,8 @@ class GenomenModelConfig(BaseConfig):
 
         # set model max_features to k (will not affect sampling)
         if self.max_features:
-            if (
-                self.geno_config.preprocessing_config.feature_selection.method
-                == "k_best"
-            ):
-                self.max_features = (
-                    self.geno_config.preprocessing_config.feature_selection.k
-                )
+            if self.geno_config.preprocessing_config.feature_selection.method == "k_best":
+                self.max_features = self.geno_config.preprocessing_config.feature_selection.k
             self.geno_config.model_config.max_features = self.max_features
 
         # init classification parameter based on on_resid
@@ -298,7 +285,7 @@ class GenomenModelConfig(BaseConfig):
         # init pos_thresh
         if self.geno_config.aggregator_config.pos_thresh is None:
             self.geno_config.aggregator_config.pos_thresh = 0.5 if self.classification else 0.0
-            
+
         # pass down backend parameter to model_configs
         self.covar_config.model_config.backend = self.backend
         self.covar_config.model_config.ram_mb = self.ram_mb
@@ -314,9 +301,7 @@ class GenomenModelConfig(BaseConfig):
             or self.geno_config.preprocessing_config.feature_selection.method != "none"
         )
 
-        self.geno_config.is_ensemble = (
-            self.geno_config.model_config.model_name == "ensemble"
-        )
+        self.geno_config.is_ensemble = self.geno_config.model_config.model_name == "ensemble"
 
     def save(self, path: str) -> None:
         """Save configuration to a YAML file.

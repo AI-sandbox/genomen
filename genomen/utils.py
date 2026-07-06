@@ -86,9 +86,7 @@ def time_taken(func):
         result = func(*args, **kwargs)
         end_time = time.perf_counter()
         execution_time = end_time - start_time
-        print(
-            f"Function {func.__name__!r} took {execution_time:.4f} seconds to execute."
-        )
+        print(f"Function {func.__name__!r} took {execution_time:.4f} seconds to execute.")
         return result
 
     return wrapper
@@ -181,9 +179,7 @@ def score(
                 if not classification:
                     score = pearsonr(y_true, y_pred).statistic ** 2
                 else:
-                    raise ValueError(
-                        f"Metric {scorer} not supported for classification."
-                    )
+                    raise ValueError(f"Metric {scorer} not supported for classification.")
         scores.append(score)
 
     if aggregate:
@@ -196,15 +192,15 @@ def score(
 
 
 def get_logits(probs: npt.NDArray, eps: float) -> npt.NDArray:
-    probs_clipped = np.clip(
-        probs, eps, 1 - eps
-    )  # clip to eps offset to prevent large numbers
+    probs_clipped = np.clip(probs, eps, 1 - eps)  # clip to eps offset to prevent large numbers
     logits = np.log(probs_clipped / (1 - probs_clipped))
 
     return logits
 
+
 def sigmoid(x: npt.NDArray) -> npt.NDArray:
     return 1 / (1 + np.exp(-x))
+
 
 def safe_softmax(x: npt.NDArray, temp: float = 1.0) -> npt.NDArray:
     if temp <= 0.0:
@@ -213,6 +209,7 @@ def safe_softmax(x: npt.NDArray, temp: float = 1.0) -> npt.NDArray:
     z = np.exp((x - m) / temp)
 
     return z / z.sum()
+
 
 def plot_hist(data: np.array, title: str = "data"):
     # Plot histogram
@@ -231,6 +228,7 @@ def plot_hist(data: np.array, title: str = "data"):
     print(f"Max: {np.max(data):.4f}")
     print(f"Shape: {data.shape}")
 
+
 def plot_importance(annotation_df, batch_id: int):
     # Configure matplotlib for large datasets
     import matplotlib
@@ -242,9 +240,7 @@ def plot_importance(annotation_df, batch_id: int):
 
     # Get unique chromosomes and sort them
     chromosomes = annotation_df["chr_name"].unique()
-    chrom_order = sorted(
-        chromosomes, key=lambda x: (int(x) if str(x).isdigit() else 100, str(x))
-    )
+    chrom_order = sorted(chromosomes, key=lambda x: (int(x) if str(x).isdigit() else 100, str(x)))
 
     # Color palette for chromosomes
     colors = plt.cm.Set1(np.linspace(0, 1, len(chrom_order)))

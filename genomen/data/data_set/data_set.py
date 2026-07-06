@@ -37,7 +37,9 @@ class DataSet:
             self._setup_cache_path()
             self._load_data_set()
 
-        self._logger.debug(f"Shape of {'train' if self.cfg.is_train else ''} data set is {self.genotype.shape}")
+        self._logger.debug(
+            f"Shape of {'train' if self.cfg.is_train else ''} data set is {self.genotype.shape}"
+        )
 
     def _setup_cache_path(self) -> None:
         """Create a unique cache directory based on input parameters."""
@@ -45,9 +47,7 @@ class DataSet:
 
         # create a unique hash based on input parameters
         covar_str = "_".join(
-            self.cfg.covar_config.covar_keys
-            if self.cfg.covar_config.include_covars
-            else []
+            self.cfg.covar_config.covar_keys if self.cfg.covar_config.include_covars else []
         )
         uid_parts = [
             str(self.cfg.paths["fam_path"]),
@@ -84,7 +84,9 @@ class DataSet:
         if os.path.exists(geno_cache_file) and os.path.exists(pheno_cache_file):
             try:
                 self._logger.info("Found cached dataset. Proceeding to loading data...")
-                self.genotype = GenoSet.from_file(geno_cache_file, bed_path=self.cfg.paths["bed_path"])
+                self.genotype = GenoSet.from_file(
+                    geno_cache_file, bed_path=self.cfg.paths["bed_path"]
+                )
                 self.phenotype = PhenoSet.from_file(pheno_cache_file)
                 data_loaded = True
             except Exception as e:
@@ -122,11 +124,13 @@ class DataSet:
         n_samples_genotype: int = len(fam_df)
         self._logger.info("Loading .master file")
         covar_keys = (
-            self.cfg.covar_config.covar_keys
-            if self.cfg.covar_config.include_covars
-            else []
+            self.cfg.covar_config.covar_keys if self.cfg.covar_config.include_covars else []
         )
-        master_df_keys = ["IID", "population"] + ([] if self.cfg.simulate else [self.cfg.phenotype_id]) + covar_keys
+        master_df_keys = (
+            ["IID", "population"]
+            + ([] if self.cfg.simulate else [self.cfg.phenotype_id])
+            + covar_keys
+        )
         master_df: pd.DataFrame = plink_utils.load_master_data(
             self.cfg.paths["master_path"], master_df_keys, self.cfg.sex
         )
@@ -147,7 +151,6 @@ class DataSet:
             self.cfg.paths["bim_path"],
             include_x_chromosome=self.cfg.include_x_chromosome,
         )
-
 
         # init genotype
         bed_path = self.cfg.paths["bed_path"]
@@ -223,9 +226,7 @@ class DataSet:
 
     def _parse_idxs(
         self,
-        key: Tuple[
-            int | slice | List | npt.ArrayLike, int | slice | List | npt.ArrayLike
-        ],
+        key: Tuple[int | slice | List | npt.ArrayLike, int | slice | List | npt.ArrayLike],
     ) -> Tuple[int | npt.ArrayLike, int | npt.ArrayLike]:
         samples, variants = key
 
@@ -239,19 +240,13 @@ class DataSet:
                 sample_idxs = np.array(samples, dtype=np.uint32)
 
             if not set(sample_idxs).issubset(self.phenotype.sample_idxs):
-                raise IndexError(
-                    "Not all sample_idxs used for slicing could be found in dataset"
-                )
+                raise IndexError("Not all sample_idxs used for slicing could be found in dataset")
         else:
             raise TypeError(f"Invalid sample index type: {type(samples)}")
 
         # get variant_idxs
         if isinstance(variants, slice):
-            if (
-                variants.start is not None
-                or variants.stop is not None
-                or variants.step is not None
-            ):
+            if variants.start is not None or variants.stop is not None or variants.step is not None:
                 raise ValueError("Only full slice ':' is supported for variant indices")
             variant_idxs = self.genotype.variant_idxs
         elif isinstance(variants, (int, list, np.ndarray)):
@@ -261,9 +256,7 @@ class DataSet:
                 variant_idxs = np.array(variants, dtype=np.uint32)
 
             if not set(variant_idxs).issubset(self.genotype.variant_idxs):
-                variant_idxs_not_found = np.setdiff1d(
-                    variant_idxs, self.genotype.variant_idxs
-                )
+                variant_idxs_not_found = np.setdiff1d(variant_idxs, self.genotype.variant_idxs)
                 raise IndexError(
                     f"Could not find {len(variant_idxs_not_found)} variant_idxs in dataset: {variant_idxs_not_found}"
                 )
@@ -274,10 +267,7 @@ class DataSet:
 
     def __getitem__(
         self,
-        key: (
-            int
-            | Tuple[int | slice | list | np.ndarray, int | slice | list | np.ndarray]
-        ),
+        key: int | Tuple[int | slice | list | np.ndarray, int | slice | list | np.ndarray],
     ) -> DataBatch | List[DataBatch]:
         if isinstance(key, (int, list, np.ndarray)):
             key = (key, slice(None))
@@ -286,7 +276,12 @@ class DataSet:
         y, pheno_annotation_df, residuals, covar_pred = self.phenotype[sample_idxs]
 
         return DataBatch(
-            self.cfg, X, geno_annotation_df, y, pheno_annotation_df, residuals,
+            self.cfg,
+            X,
+            geno_annotation_df,
+            y,
+            pheno_annotation_df,
+            residuals,
             covar_pred=covar_pred,
         )
 
@@ -302,7 +297,9 @@ class DataSet:
         maf_cache = Path(self._cache_path) / f"maf_{sid}.parquet"
         # Missingness is computed on the MAF-filtered variant set, so its cache key
         # includes the MAF threshold to ensure invalidation when the threshold changes.
-        missingness_cache = Path(self._cache_path) / f"missingness_{sid}_{self.cfg.maf_threshold:.6f}.parquet"
+        missingness_cache = (
+            Path(self._cache_path) / f"missingness_{sid}_{self.cfg.maf_threshold:.6f}.parquet"
+        )
         # A0_FREQ is computed on the post-filter variant set, so its cache key includes
         # the MAF and missingness thresholds to ensure invalidation when either changes.
         a0freq_cache = Path(self._cache_path) / (
@@ -360,11 +357,15 @@ class DataSet:
             if (
                 isinstance(cached_miss, pd.DataFrame)
                 and ("MISSINGNESS" in cached_miss)
-                and np.array_equal(cached_miss.index.values, self.genotype.annotation_df.index.values)
+                and np.array_equal(
+                    cached_miss.index.values, self.genotype.annotation_df.index.values
+                )
             ):
                 self.genotype.annotation_df["MISSINGNESS"] = cached_miss["MISSINGNESS"].values
             else:
-                self._logger.warning("Cached missingness invalid for current genotype; recomputing.")
+                self._logger.warning(
+                    "Cached missingness invalid for current genotype; recomputing."
+                )
                 missingness_cache.unlink(missing_ok=True)
 
         if "MISSINGNESS" not in self.genotype.annotation_df.columns:
@@ -443,7 +444,9 @@ class DataSet:
             except Exception as e:
                 self._logger.warning(f"Could not write A0_FREQ cache {a0freq_cache}: {e}")
 
-    def sample_sample_idxs(self, seed: int | None = None, skip_class_check: bool = False) -> npt.NDArray:
+    def sample_sample_idxs(
+        self, seed: int | None = None, skip_class_check: bool = False
+    ) -> npt.NDArray:
         """Sample a batch of sample indices according to the configured sampling strategy.
 
         Args:
@@ -459,7 +462,9 @@ class DataSet:
             rng = np.random.default_rng(seed)
 
         sample_idxs = self.phenotype.sample_idxs
-        if self.cfg.sample_sampling.max_samples is None and not (self.cfg.classification and self.cfg.sample_sampling.strat in ["stratify", "balanced"]):
+        if self.cfg.sample_sampling.max_samples is None and not (
+            self.cfg.classification and self.cfg.sample_sampling.strat in ["stratify", "balanced"]
+        ):
             return sample_idxs
 
         if fix_samples and hasattr(self, "_fixed_batch_sample_idxs"):
@@ -472,22 +477,17 @@ class DataSet:
                 self.cfg.sample_sampling.strat in ["stratify", "balanced"]
             ):
                 strategy = (
-                    "stratified"
-                    if self.cfg.sample_sampling.strat == "stratify"
-                    else "balanced"
+                    "stratified" if self.cfg.sample_sampling.strat == "stratify" else "balanced"
                 )
 
                 if self.cfg.sample_sampling.balance_pops:
                     batch_sample_idxs = []
                     for population in self.cfg.populations:
-                        pop_mask = (
-                            self.phenotype.annotation_df["population"] == population
-                        )
+                        pop_mask = self.phenotype.annotation_df["population"] == population
 
                         if strategy == "stratified":
-                            samples_per_pop = (
-                                self.cfg.sample_sampling.max_samples
-                                // len(self.cfg.populations)
+                            samples_per_pop = self.cfg.sample_sampling.max_samples // len(
+                                self.cfg.populations
                             )
                             pop_sample_idxs = data_set_utils.adaptive_sampling(
                                 sample_idxs=sample_idxs[pop_mask],
@@ -495,7 +495,7 @@ class DataSet:
                                 classification=self.cfg.classification,
                                 size=samples_per_pop,
                                 strategy=strategy,
-                                rng=rng
+                                rng=rng,
                             )
                         else:  # balanced
                             pop_sample_idxs = data_set_utils.adaptive_sampling(
@@ -518,18 +518,14 @@ class DataSet:
                         size=self.cfg.sample_sampling.max_samples,
                         strategy=strategy,
                         k=self.cfg.sample_sampling.k if strategy == "balanced" else None,
-                        rng=rng
+                        rng=rng,
                     )
 
             elif self.cfg.sample_sampling.balance_pops:
-                samples_per_pop = self.cfg.sample_sampling.max_samples // len(
-                    self.cfg.populations
-                )
+                samples_per_pop = self.cfg.sample_sampling.max_samples // len(self.cfg.populations)
                 batch_sample_idxs = []
                 for population in self.cfg.populations:
-                    pop_mask = (
-                        self.phenotype.annotation_df["population"] == population
-                    )
+                    pop_mask = self.phenotype.annotation_df["population"] == population
                     batch_sample_idxs.append(
                         rng.choice(
                             sample_idxs[pop_mask],
@@ -546,9 +542,7 @@ class DataSet:
                 )
 
             if self.cfg.classification and not skip_class_check:
-                y_batch = self.phenotype.annotation_df.loc[
-                    batch_sample_idxs, "y"
-                ].values
+                y_batch = self.phenotype.annotation_df.loc[batch_sample_idxs, "y"].values
                 if len(np.unique(y_batch)) < 2:
                     logging.warning(
                         f"Resampling attempt {resample_count + 1}: "
@@ -619,8 +613,16 @@ class DataSet:
             pheno_annotation_df = self.phenotype.annotation_df.loc[sample_idxs]
             Z = pheno_annotation_df[self.phenotype.covar_keys].to_numpy()
             y = pheno_annotation_df["y"].values
-            residuals = pheno_annotation_df["residuals"].values if self.phenotype.residuals is not None else None
-            covar_pred = pheno_annotation_df["covar_pred"].values if self.phenotype.covar_pred is not None else None
+            residuals = (
+                pheno_annotation_df["residuals"].values
+                if self.phenotype.residuals is not None
+                else None
+            )
+            covar_pred = (
+                pheno_annotation_df["covar_pred"].values
+                if self.phenotype.covar_pred is not None
+                else None
+            )
         else:
             Z = self.phenotype.get_covars()
             y = self.phenotype.y
@@ -674,8 +676,7 @@ class DataSet:
             classification=self.cfg.classification,
             size=n_samples,
             strategy="stratified",
-            rng=rng
+            rng=rng,
         )
 
         return np.sort(background_sample_idxs).astype(np.uint32)
-

@@ -79,9 +79,9 @@ def compute_ld_blocks(
             ld_df, on="snp", how="left"
         ).set_index(data_set.genotype.annotation_df.index)
         data_set.genotype.annotation_df["block_idx"] -= 1  # null idx
-        data_set.genotype.annotation_df["block_idx"] = (
-            data_set.genotype.annotation_df["block_idx"].fillna(-1)
-        )
+        data_set.genotype.annotation_df["block_idx"] = data_set.genotype.annotation_df[
+            "block_idx"
+        ].fillna(-1)
         try:
             pd.DataFrame(
                 {"block_idx": data_set.genotype.annotation_df["block_idx"].values},

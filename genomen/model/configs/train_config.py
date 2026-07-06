@@ -9,12 +9,8 @@ from ...base_config import BaseConfig
 
 @dataclass
 class TrainConfig(BaseConfig):
-    classification: bool = field(
-        metadata={"help": "Whether phenotype is binary or continuous"}
-    )
-    batch_size: int = field(
-        default=1, metadata={"help": "Number of mini batches per batch"}
-    )
+    classification: bool = field(metadata={"help": "Whether phenotype is binary or continuous"})
+    batch_size: int = field(default=1, metadata={"help": "Number of mini batches per batch"})
     n_jobs: int = field(
         default=-1,
         metadata={
@@ -32,13 +28,9 @@ class TrainConfig(BaseConfig):
     )
     patience: int = field(
         default=0,
-        metadata={
-            "help": "Number of batches to wait for improvement before early stopping"
-        },
+        metadata={"help": "Number of batches to wait for improvement before early stopping"},
     )
-    seed: int = field(
-        default=22, metadata={"help": "Seed for constant evaluation conditions"}
-    )
+    seed: int = field(default=22, metadata={"help": "Seed for constant evaluation conditions"})
     log_with_wandb: bool = field(
         default=False, metadata={"help": "Whether to log metrics with Weights & Biases"}
     )
@@ -47,9 +39,7 @@ class TrainConfig(BaseConfig):
     )
     save_model: bool = field(
         default=False,
-        metadata={
-            "help": "Whether to save the model to the model_path defiend in .env."
-        },
+        metadata={"help": "Whether to save the model to the model_path defiend in .env."},
     )
     compute_shap: bool = field(
         default=False, metadata={"help": "Whether to compute shap values during fit"}

@@ -968,7 +968,7 @@ wheels = [
 
 [[package]]
 name = "genomen"
-version = "0.1.5"
+version = "1.0"
 source = { editable = "." }
 dependencies = [
     { name = "bed-reader", version = "1.0.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or python_full_version >= '3.14' or platform_machine != 'aarch64' or sys_platform != 'linux'" },

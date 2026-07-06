@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 _inv_transform_plot_count = 0
 _INV_TRANSFORM_MAX_PLOTS = 3
 
+
 def yeo_johnson_domain_space(transformer, feature_idx=0, eps=1e-8):
     lam = transformer.lambdas_[feature_idx]
 
@@ -33,6 +34,7 @@ def yeo_johnson_domain_space(transformer, feature_idx=0, eps=1e-8):
 
     return lo, hi
 
+
 class PearsonResidualTransformer:
     """Computes Pearson residuals (y - p) / sqrt(p*(1-p)) with exact inverse.
 
@@ -50,12 +52,17 @@ class PearsonResidualTransformer:
         return resids / self.scale_
 
     def transform(self, resids: npt.NDArray) -> npt.NDArray:
-        assert resids.shape == self.scale_.shape, f"Shape mismatch: resids.shape={resids.shape}, scale_.shape={self.scale_.shape}"
+        assert (
+            resids.shape == self.scale_.shape
+        ), f"Shape mismatch: resids.shape={resids.shape}, scale_.shape={self.scale_.shape}"
         return resids / self.scale_
 
     def inverse_transform(self, resids: npt.NDArray) -> npt.NDArray:
-        assert resids.shape == self.scale_.shape, f"Shape mismatch: resids.shape={resids.shape}, scale_.shape={self.scale_.shape}"
+        assert (
+            resids.shape == self.scale_.shape
+        ), f"Shape mismatch: resids.shape={resids.shape}, scale_.shape={self.scale_.shape}"
         return resids * self.scale_
+
 
 def safe_inv_transform(transformer, x):
     global _inv_transform_plot_count
@@ -98,19 +105,32 @@ def safe_inv_transform(transformer, x):
 def _plot_inv_transform_distributions(x, out, nan_mask, plot_idx):
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
 
         fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-        fig.suptitle(f"inverse_transform diagnostics (call #{plot_idx + 1}), NaNs={nan_mask.sum()}/{nan_mask.size}")
+        fig.suptitle(
+            f"inverse_transform diagnostics (call #{plot_idx + 1}), NaNs={nan_mask.sum()}/{nan_mask.size}"
+        )
 
         # Input distribution
         ax = axes[0]
         ax.hist(x, bins=100, color="steelblue", edgecolor="none")
         nan_inputs = x[nan_mask]
         if len(nan_inputs) > 0:
-            ax.axvline(nan_inputs.min(), color="red", linestyle="--", label=f"NaN input min={nan_inputs.min():.2f}")
-            ax.axvline(nan_inputs.max(), color="orange", linestyle="--", label=f"NaN input max={nan_inputs.max():.2f}")
+            ax.axvline(
+                nan_inputs.min(),
+                color="red",
+                linestyle="--",
+                label=f"NaN input min={nan_inputs.min():.2f}",
+            )
+            ax.axvline(
+                nan_inputs.max(),
+                color="orange",
+                linestyle="--",
+                label=f"NaN input max={nan_inputs.max():.2f}",
+            )
             ax.legend(fontsize=7)
         ax.set_title("Input (transformed residuals)")
         ax.set_xlabel("value")
@@ -128,7 +148,14 @@ def _plot_inv_transform_distributions(x, out, nan_mask, plot_idx):
         # Input: NaN-producing vs finite side by side
         ax = axes[2]
         finite_inputs = x[~nan_mask]
-        ax.hist(finite_inputs, bins=80, alpha=0.6, color="steelblue", label="finite output", density=True)
+        ax.hist(
+            finite_inputs,
+            bins=80,
+            alpha=0.6,
+            color="steelblue",
+            label="finite output",
+            density=True,
+        )
         if len(nan_inputs) > 0:
             ax.hist(nan_inputs, bins=80, alpha=0.6, color="red", label="NaN output", density=True)
         ax.set_title("Input split by NaN outcome")
@@ -142,6 +169,7 @@ def _plot_inv_transform_distributions(x, out, nan_mask, plot_idx):
         logger.info(f"Saved inverse_transform debug plot to {path}")
     except Exception as e:
         logger.warning(f"Failed to generate inverse_transform debug plot: {e}")
+
 
 def safe_nanmean(X, axis=0, fill_value=0.0):
     X = np.asarray(X)

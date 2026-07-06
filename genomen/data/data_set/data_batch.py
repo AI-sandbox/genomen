@@ -33,7 +33,9 @@ class DataBatch:
             if "A0_FREQ" in self.geno_annotation.columns:
                 a0_freq = self.geno_annotation["A0_FREQ"].values.astype(np.float32)
             else:
-                _logger.warning("A0_FREQ missing from annotation; centering with MAF (may be biased)")
+                _logger.warning(
+                    "A0_FREQ missing from annotation; centering with MAF (may be biased)"
+                )
                 a0_freq = maf
             mean = 2.0 * a0_freq
             std = np.sqrt(2.0 * maf * (1.0 - maf))  # symmetric: MAF*(1-MAF) = a0_freq*(1-a0_freq)
@@ -41,13 +43,15 @@ class DataBatch:
 
             # Detect missing sentinel (-127 from bed_reader) before centering
             if np.issubdtype(self.X.dtype, np.integer):
-                missing_mask = (self.X == -127)
+                missing_mask = self.X == -127
                 n_missing = int(missing_mask.sum())
             else:
                 missing_mask = None
                 n_missing = 0
 
-            X_float = self.X.astype(np.float32) if np.issubdtype(self.X.dtype, np.integer) else self.X
+            X_float = (
+                self.X.astype(np.float32) if np.issubdtype(self.X.dtype, np.integer) else self.X
+            )
             self.X = (X_float - mean) / std
             if missing_mask is not None and n_missing > 0:
                 # Mean imputation: 0.0 in centered space = 2·MAF in raw space

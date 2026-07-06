@@ -9,9 +9,17 @@ from .ld_utils import compute_ld_blocks
 
 logger = logging.getLogger(__name__)
 
+
 def sample_interaction_pairs(
-    n_variants, add_pos_idxs, rng, n_epi_causal, overlap_add_epi, epi_both_add,
-    block_idx_arr=None, require_diff_block=False, require_non_add_block=False,
+    n_variants,
+    add_pos_idxs,
+    rng,
+    n_epi_causal,
+    overlap_add_epi,
+    epi_both_add,
+    block_idx_arr=None,
+    require_diff_block=False,
+    require_non_add_block=False,
 ):
     interaction_pairs = set()
 
@@ -63,7 +71,7 @@ def sample_interaction_pairs(
             attempts = 0
             while n_overlap_sampled < n_epi_overlap and attempts < max_attempts:
                 attempts += 1
-                if epi_both_add: # both SNPs must be additive causal
+                if epi_both_add:  # both SNPs must be additive causal
                     if len(add_pos_idxs) < 2:
                         break
                     i, j = rng.choice(add_pos_idxs, size=2, replace=False)
@@ -97,11 +105,12 @@ def sample_interaction_pairs(
 
     return interaction_pairs
 
+
 def simulate(
     dataset: DataSet,
     task: Literal["cls", "reg"],
     prevalence: float = 0.1,
-    n_samples = 1_000,
+    n_samples=1_000,
     h_cov: float = 0.1,
     h_add: float = 0.3,
     h_epi: float = 0.05,
@@ -130,7 +139,9 @@ def simulate(
 
     rng = np.random.default_rng(seed)
 
-    logger.info(f"Simulating dataset for {dataset.cfg.sample_sampling.max_samples} samples (ancestry={dataset.cfg.populations}) with MAF={dataset.cfg.maf_threshold}.")
+    logger.info(
+        f"Simulating dataset for {dataset.cfg.sample_sampling.max_samples} samples (ancestry={dataset.cfg.populations}) with MAF={dataset.cfg.maf_threshold}."
+    )
 
     logger.info(f"Subset {n_samples} samples...")
     orig_sampling_strat = dataset.cfg.sample_sampling.strat
@@ -149,8 +160,8 @@ def simulate(
         train_val_idxs, test_size=p / (1 - p), random_state=seed, shuffle=True
     )
     train_set, val_set, test_set = split(dataset, split_idxs=[train_idxs, val_idxs, test_idxs])
-    
-    train_set._compute_maf() # dropping all variants with MAF < MAF threshold
+
+    train_set._compute_maf()  # dropping all variants with MAF < MAF threshold
     for ds in [val_set, test_set]:
         if ds is not None:
             ds.genotype.annotation_df = train_set.genotype.annotation_df.copy()
@@ -165,14 +176,18 @@ def simulate(
         logger.info("Computing LD blocks...")
         compute_ld_blocks(train_set)
         _ann = train_set.genotype.annotation_df
-        block_idx_arr = np.array([int(_ann.loc[g, "block_idx"]) for g in variant_idxs], dtype=np.int64)
+        block_idx_arr = np.array(
+            [int(_ann.loc[g, "block_idx"]) for g in variant_idxs], dtype=np.int64
+        )
         for ds in [val_set, test_set]:
             if ds is not None:
                 ds.genotype.annotation_df = _ann.copy()
 
-    logger.info(f"Simulating phenotype with covariate 'heritability' of {h_cov} (age, sex, PC1-10), additive heritability of {h_add} ({frac_add_causal * 100}% of variants causal) and epistatic heritability of {h_epi} ({n_epi_causal} interactions).")
+    logger.info(
+        f"Simulating phenotype with covariate 'heritability' of {h_cov} (age, sex, PC1-10), additive heritability of {h_add} ({frac_add_causal * 100}% of variants causal) and epistatic heritability of {h_epi} ({n_epi_causal} interactions)."
+    )
     # covar effects
-    gamma = rng.normal(size=len(train_set.cfg.covar_config.covar_keys)) 
+    gamma = rng.normal(size=len(train_set.cfg.covar_config.covar_keys))
 
     # additive effects
     n_add = int(frac_add_causal * n_variants)
@@ -191,12 +206,19 @@ def simulate(
     # epistatic effects
     if h_epi > 0:
         interaction_pairs = sample_interaction_pairs(
-            n_variants, add_pos_idxs, rng, n_epi_causal, overlap_add_epi, epi_both_add,
+            n_variants,
+            add_pos_idxs,
+            rng,
+            n_epi_causal,
+            overlap_add_epi,
+            epi_both_add,
             block_idx_arr=block_idx_arr,
             require_diff_block=require_diff_block,
             require_non_add_block=require_non_add_block,
         )
-        alpha = rng.normal(0.0, 1.0 / np.sqrt(max(len(interaction_pairs), 1)), size=len(interaction_pairs))
+        alpha = rng.normal(
+            0.0, 1.0 / np.sqrt(max(len(interaction_pairs), 1)), size=len(interaction_pairs)
+        )
     else:
         interaction_pairs = []
         alpha = np.array([], dtype=float)
@@ -221,8 +243,14 @@ def simulate(
         logger.info(
             "[MAF-CHECK SIM %s] n_variants=%d, MAF mean=%.5f std=%.5f min=%.5f max=%.5f | "
             "first5 global_idx=%s MAF=%s",
-            _split_name, len(_maf), _maf.mean(), _maf.std(), _maf.min(), _maf.max(),
-            _vidxs[:5].tolist(), _maf[:5].round(5).tolist(),
+            _split_name,
+            len(_maf),
+            _maf.mean(),
+            _maf.std(),
+            _maf.min(),
+            _maf.max(),
+            _vidxs[:5].tolist(),
+            _maf[:5].round(5).tolist(),
         )
     # Verify centering of split_G["train"]: column means should be ~0, stds ~1
     _col_means = split_G["train"].mean(axis=0)
@@ -230,12 +258,16 @@ def simulate(
     logger.info(
         "[MAF-CHECK SIM] split_G['train'] post-centering: "
         "col_mean max_abs=%.2e (expect ~0), col_std mean=%.5f min=%.5f (expect ~1)",
-        float(np.abs(_col_means).max()), float(_col_stds.mean()), float(_col_stds.min()),
+        float(np.abs(_col_means).max()),
+        float(_col_stds.mean()),
+        float(_col_stds.min()),
     )
 
     # Determine scaling from train split only, then apply uniformly to all splits
     g_add_tr = split_G["train"] @ beta
-    add_scale = 0.0 if h_add == 0 else (np.sqrt(h_add) / np.std(g_add_tr) if np.var(g_add_tr) > 0 else 1.0)
+    add_scale = (
+        0.0 if h_add == 0 else (np.sqrt(h_add) / np.std(g_add_tr) if np.var(g_add_tr) > 0 else 1.0)
+    )
     if h_cov > 0:
         g_cov_tr = split_C["train"] @ gamma
         cov_scale = np.sqrt(h_cov) / np.std(g_cov_tr) if np.var(g_cov_tr) > 0 else 1.0
@@ -312,7 +344,7 @@ def simulate(
         y = (y_liabilities[name] > threshold).astype(int) if task == "cls" else y_liabilities[name]
         ds.phenotype.annotation_df["y"] = y
         ds.cfg.phenotype_id = sim_phenotype_id
-        ds.cfg.classification = (task == "cls")
+        ds.cfg.classification = task == "cls"
 
     ann = train_set.genotype.annotation_df
     interaction_pairs_arr = (
@@ -323,8 +355,12 @@ def simulate(
     if len(interaction_pairs_arr) > 0:
         i_idxs = interaction_pairs_arr[:, 0]
         j_idxs = interaction_pairs_arr[:, 1]
-        interaction_chrs = np.stack([ann["chr_name"].values[i_idxs], ann["chr_name"].values[j_idxs]], axis=1)
-        interaction_pos = np.stack([ann["chr_position"].values[i_idxs], ann["chr_position"].values[j_idxs]], axis=1)
+        interaction_chrs = np.stack(
+            [ann["chr_name"].values[i_idxs], ann["chr_name"].values[j_idxs]], axis=1
+        )
+        interaction_pos = np.stack(
+            [ann["chr_position"].values[i_idxs], ann["chr_position"].values[j_idxs]], axis=1
+        )
         interaction_snps = np.stack([ann["snp"].values[i_idxs], ann["snp"].values[j_idxs]], axis=1)
     else:
         interaction_chrs = np.empty((0, 2), dtype=object)

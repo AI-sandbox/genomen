@@ -13,9 +13,7 @@ from .configs import ModelConfig
 class WeakEstimator:
     """Base class for weak meta models that train on subsets of data."""
 
-    def __init__(
-        self, cfg: ModelConfig, model_init_params: Dict[str, Any] | None = None
-    ):
+    def __init__(self, cfg: ModelConfig, model_init_params: Dict[str, Any] | None = None):
         """Initialize the weak meta model.
 
         Args:
@@ -75,6 +73,7 @@ class WeakEstimator:
                     else:
                         from cuml.linear_model import LinearRegression
                     from cuml import set_global_output_type
+
                     set_global_output_type("numpy")
                 except ImportError:
                     raise ImportError(
@@ -103,6 +102,7 @@ class WeakEstimator:
                     else:
                         from cuml.linear_model import Lasso
                     from cuml import set_global_output_type
+
                     set_global_output_type("numpy")
                 except ImportError:
                     raise ImportError(
@@ -127,9 +127,7 @@ class WeakEstimator:
                     **hp,
                 )
             else:
-                if ("C" in self.cfg.hyperparameters) and (
-                    "alpha" not in self.cfg.hyperparameters
-                ):
+                if ("C" in self.cfg.hyperparameters) and ("alpha" not in self.cfg.hyperparameters):
                     self.cfg.hyperparameters["alpha"] = (
                         1.0 / self.cfg.hyperparameters["C"]
                         if self.cfg.hyperparameters["C"] > 0
@@ -147,6 +145,7 @@ class WeakEstimator:
                     else:
                         from cuml.linear_model import Ridge
                     from cuml import set_global_output_type
+
                     set_global_output_type("numpy")
                 except ImportError:
                     raise ImportError(
@@ -159,9 +158,7 @@ class WeakEstimator:
                     from sklearn.linear_model import Ridge
 
             if self.cfg.classification:
-                if ("alpha" in self.cfg.hyperparameters) and (
-                    "C" not in self.cfg.hyperparameters
-                ):
+                if ("alpha" in self.cfg.hyperparameters) and ("C" not in self.cfg.hyperparameters):
                     self.cfg.hyperparameters["C"] = (
                         1.0 / self.cfg.hyperparameters["alpha"]
                         if self.cfg.hyperparameters["alpha"] > 0
@@ -176,9 +173,7 @@ class WeakEstimator:
                     **self.cfg.hyperparameters,
                 )
             else:
-                if ("C" in self.cfg.hyperparameters) and (
-                    "alpha" not in self.cfg.hyperparameters
-                ):
+                if ("C" in self.cfg.hyperparameters) and ("alpha" not in self.cfg.hyperparameters):
                     self.cfg.hyperparameters["alpha"] = (
                         1.0 / self.cfg.hyperparameters["C"]
                         if self.cfg.hyperparameters["C"] > 0
@@ -196,6 +191,7 @@ class WeakEstimator:
                     else:
                         from cuml.linear_model import ElasticNet
                     from cuml import set_global_output_type
+
                     set_global_output_type("numpy")
                 except ImportError:
                     raise ImportError(
@@ -208,9 +204,7 @@ class WeakEstimator:
                     from sklearn.linear_model import ElasticNet
 
             if self.cfg.classification:
-                if ("alpha" in self.cfg.hyperparameters) and (
-                    "C" not in self.cfg.hyperparameters
-                ):
+                if ("alpha" in self.cfg.hyperparameters) and ("C" not in self.cfg.hyperparameters):
                     self.cfg.hyperparameters["C"] = (
                         1.0 / self.cfg.hyperparameters["alpha"]
                         if self.cfg.hyperparameters["alpha"] > 0
@@ -225,9 +219,7 @@ class WeakEstimator:
                     **self.cfg.hyperparameters,
                 )
             else:
-                if ("C" in self.cfg.hyperparameters) and (
-                    "alpha" not in self.cfg.hyperparameters
-                ):
+                if ("C" in self.cfg.hyperparameters) and ("alpha" not in self.cfg.hyperparameters):
                     self.cfg.hyperparameters["alpha"] = (
                         1.0 / self.cfg.hyperparameters["C"]
                         if self.cfg.hyperparameters["C"] > 0
@@ -241,6 +233,7 @@ class WeakEstimator:
                 try:
                     from cuml.linear_model import BayesianRidge
                     from cuml import set_global_output_type
+
                     set_global_output_type("numpy")
                 except ImportError:
                     raise ImportError(
@@ -265,9 +258,7 @@ class WeakEstimator:
                     setattr(model, param, model_init_params[param])
 
                 else:
-                    raise ValueError(
-                        f"Required parameter '{param}' not found in model_init_params"
-                    )
+                    raise ValueError(f"Required parameter '{param}' not found in model_init_params")
 
         self.model = model
 
@@ -385,9 +376,7 @@ class WeakEstimator:
                     **self.cfg.hyperparameters,
                 )
         else:
-            raise ValueError(
-                f"Non-linear model {self.cfg.model_name} is not supported."
-            )
+            raise ValueError(f"Non-linear model {self.cfg.model_name} is not supported.")
 
         self.model = model
 
@@ -396,9 +385,7 @@ class WeakEstimator:
         weak_estimator_dir = os.path.join(self.cfg.model_dir, "weak_estimator")
         os.makedirs(weak_estimator_dir, exist_ok=True)
 
-        model_path = os.path.join(
-            weak_estimator_dir, f"weak_estimator_{self.cfg.model_id}.pkl"
-        )
+        model_path = os.path.join(weak_estimator_dir, f"weak_estimator_{self.cfg.model_id}.pkl")
 
         joblib.dump(self.model, model_path)
 
@@ -422,13 +409,18 @@ class WeakEstimator:
         """
         import numpy as np
         from sklearn.linear_model import (
-            ElasticNet, Lasso, LogisticRegression, Ridge,
+            ElasticNet,
+            Lasso,
+            LogisticRegression,
+            Ridge,
         )
 
-        X_aug = np.column_stack([
-            X_train.astype(np.float32, copy=False),
-            offset.astype(np.float32).reshape(-1, 1),
-        ])
+        X_aug = np.column_stack(
+            [
+                X_train.astype(np.float32, copy=False),
+                offset.astype(np.float32).reshape(-1, 1),
+            ]
+        )
 
         hp = self.cfg.hyperparameters or {}
         if "C" in hp:
@@ -440,19 +432,28 @@ class WeakEstimator:
         if self.cfg.classification:
             if self.cfg.model_name == "linear_l1":
                 model = LogisticRegression(
-                    penalty="l1", solver="liblinear", C=C,
+                    penalty="l1",
+                    solver="liblinear",
+                    C=C,
                     max_iter=4000,
                 )
             elif self.cfg.model_name == "linear_l2":
                 model = LogisticRegression(
-                    penalty="l2", solver="lbfgs", C=C, max_iter=4000,
+                    penalty="l2",
+                    solver="lbfgs",
+                    C=C,
+                    max_iter=4000,
                     n_jobs=self.cfg.n_jobs,
                 )
             else:  # elasticnet
                 l1_ratio = float(hp.get("l1_ratio", 0.5))
                 model = LogisticRegression(
-                    penalty="elasticnet", solver="saga", C=C,
-                    l1_ratio=l1_ratio, max_iter=4000, n_jobs=self.cfg.n_jobs,
+                    penalty="elasticnet",
+                    solver="saga",
+                    C=C,
+                    l1_ratio=l1_ratio,
+                    max_iter=4000,
+                    n_jobs=self.cfg.n_jobs,
                 )
         else:
             if self.cfg.model_name == "linear_l1":
@@ -466,6 +467,7 @@ class WeakEstimator:
         fit_kwargs = {}
         if sample_weight is not None and hasattr(model, "fit"):
             import inspect
+
             if "sample_weight" in inspect.signature(model.fit).parameters:
                 fit_kwargs["sample_weight"] = sample_weight
 
@@ -478,10 +480,12 @@ class WeakEstimator:
         """Return geno-only predictions (offset column zeroed out)."""
         import numpy as np
 
-        X_aug = np.column_stack([
-            X.astype(np.float32, copy=False),
-            np.zeros(len(X), dtype=np.float32),
-        ])
+        X_aug = np.column_stack(
+            [
+                X.astype(np.float32, copy=False),
+                np.zeros(len(X), dtype=np.float32),
+            ]
+        )
         if self.cfg.classification:
             return self.model.predict_proba(X_aug)[:, 1]
         return self.model.predict(X_aug)
@@ -516,7 +520,6 @@ class WeakEstimator:
             if y_val is not None:
                 y_val = self.scaler.transform(y_val.reshape(-1, 1)).reshape(-1)
 
-
         if hasattr(self.model, "fit"):
             # check if the fit method accepts validation parameters
             fit_signature = inspect.signature(self.model.fit)
@@ -526,20 +529,13 @@ class WeakEstimator:
             if self.cfg.model_name == "lightgbm" and has_val:
                 import lightgbm as lgb
 
-                fit_params["callbacks"] = [
-                    lgb.early_stopping(stopping_rounds=100, verbose=False)
-                ]
-                fit_params["eval_metric"] = (
-                    "auc" if self.cfg.classification else "rmse"
-                )
+                fit_params["callbacks"] = [lgb.early_stopping(stopping_rounds=100, verbose=False)]
+                fit_params["eval_metric"] = "auc" if self.cfg.classification else "rmse"
             if self.cfg.model_name == "xgboost":
                 fit_params["verbose"] = False
 
             # Generic sklearn-style models
-            if (
-                has_val
-                and "eval_set" in inspect.signature(self.model.fit).parameters
-            ):
+            if has_val and "eval_set" in inspect.signature(self.model.fit).parameters:
                 fit_params["eval_set"] = [(X_val, y_val)]
 
             # LGBM offset via init_score
@@ -549,10 +545,7 @@ class WeakEstimator:
                     fit_params["eval_init_score"] = [init_score_val]
 
             # add sample_weight if the model supports it and weights are provided
-            if (
-                "sample_weight" in fit_signature.parameters
-                and sample_weight is not None
-            ):
+            if "sample_weight" in fit_signature.parameters and sample_weight is not None:
                 fit_params["sample_weight"] = sample_weight
 
             if self.cfg.backend == "gpu" and self.cfg.model_type == "linear":
@@ -590,8 +583,6 @@ class WeakEstimator:
             prediction = self.model.predict(X)
 
         if (not self.cfg.classification) and (self.scaler is not None):
-            prediction = self.scaler.inverse_transform(
-                prediction.reshape(-1, 1)
-            ).reshape(-1)
+            prediction = self.scaler.inverse_transform(prediction.reshape(-1, 1)).reshape(-1)
 
         return prediction

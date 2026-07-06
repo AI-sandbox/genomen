@@ -30,9 +30,7 @@ class GenomenModel:
     def _setup_run(self, train_data: DataSet, mode: Literal["geno", "covar+geno"]):
         geno_model_str = f"GENO{self.cfg.geno_config.model_config.model_name}_"
         covar_model_str = (
-            f"COVAR{self.cfg.covar_config.model_config.model_name}_"
-            if mode == "covar+geno"
-            else ""
+            f"COVAR{self.cfg.covar_config.model_config.model_name}_" if mode == "covar+geno" else ""
         )
 
         run_dir = (
@@ -101,7 +99,9 @@ class GenomenModel:
             ram_mb=self.train_cfg.ram_mb,
         )
 
-        self._logger.info(f"Interaction value computation is set: {self.cfg.geno_config.compute_interactions}")
+        self._logger.info(
+            f"Interaction value computation is set: {self.cfg.geno_config.compute_interactions}"
+        )
         if self.cfg.include_covars:
             self._logger.info("Fitting covar model...")
             self._setup_run(train_data, "covar+geno")
@@ -117,7 +117,8 @@ class GenomenModel:
             # get residuals / covar_pred for train data
             self._logger.info("Fitting covar model on train data...")
             train_data, _ = self.covar_model.cross_val_predict(
-                train_data, refit=True,
+                train_data,
+                refit=True,
                 residualize=self.cfg.geno_config.use_resids,
                 use_offset=use_offset,
                 standardize=standardize,
@@ -158,8 +159,14 @@ class GenomenModel:
                 self._logger.info(
                     "[MAF-CHECK MODEL pre-setup %s] n_variants=%d, MAF mean=%.5f std=%.5f "
                     "min=%.5f max=%.5f | first5 global_idx=%s MAF=%s",
-                    _split_name, len(_maf), _maf.mean(), _maf.std(), _maf.min(), _maf.max(),
-                    _vidxs[:5].tolist(), _maf[:5].round(5).tolist(),
+                    _split_name,
+                    len(_maf),
+                    _maf.mean(),
+                    _maf.std(),
+                    _maf.min(),
+                    _maf.max(),
+                    _vidxs[:5].tolist(),
+                    _maf[:5].round(5).tolist(),
                 )
 
         train_data.setup()
@@ -181,15 +188,20 @@ class GenomenModel:
             self._logger.info(
                 "[MAF-CHECK MODEL post-setup %s] pre_n=%d post_n=%d shared=%d "
                 "max_diff=%.2e n_mismatches(>1e-6)=%d",
-                _split_name, len(_maf_before), len(_maf_after), len(_shared),
-                float(_diff.max()) if len(_diff) else 0.0, _n_mismatch,
+                _split_name,
+                len(_maf_before),
+                len(_maf_after),
+                len(_shared),
+                float(_diff.max()) if len(_diff) else 0.0,
+                _n_mismatch,
             )
             if _n_mismatch > 0:
                 _bad = _diff[_diff > 1e-6]
                 self._logger.warning(
                     "[MAF-CHECK MODEL %s] %d variant(s) changed MAF after setup(). "
                     "First mismatches:\n%s",
-                    _split_name, _n_mismatch,
+                    _split_name,
+                    _n_mismatch,
                     _bad.head(10).to_string(),
                 )
 
@@ -228,7 +240,10 @@ class GenomenModel:
         # fuse covar and geno (preferably on val)
         if self.cfg.include_covars and val_data is not None:
             fused_val_preds = self._fuse_predict(
-                val_covar_preds, val_geno_preds, val_geno_resid_preds, res_transformer=val_data.phenotype.residual_transformer
+                val_covar_preds,
+                val_geno_preds,
+                val_geno_resid_preds,
+                res_transformer=val_data.phenotype.residual_transformer,
             )
             fused_val_score = utils.score(
                 val_data.get_labels(),
@@ -274,8 +289,13 @@ class GenomenModel:
 
     def predict(
         self, data: DataSet, *, compute_shap: bool = False
-    ) -> Tuple[npt.NDArray, npt.NDArray | None, npt.NDArray | None] | Tuple[npt.NDArray, npt.NDArray | None, npt.NDArray | None, "pd.DataFrame | None"]:
-        if "MAF" not in data.genotype.annotation_df.columns and hasattr(self, "_train_annotation_df"):
+    ) -> (
+        Tuple[npt.NDArray, npt.NDArray | None, npt.NDArray | None]
+        | Tuple[npt.NDArray, npt.NDArray | None, npt.NDArray | None, "pd.DataFrame | None"]
+    ):
+        if "MAF" not in data.genotype.annotation_df.columns and hasattr(
+            self, "_train_annotation_df"
+        ):
             data.genotype.annotation_df["MAF"] = self._train_annotation_df["MAF"]
         if (
             "A0_FREQ" not in data.genotype.annotation_df.columns
@@ -298,7 +318,12 @@ class GenomenModel:
             )
             self.per_type_geno_preds = per_type_geno_preds
             # fuse covar and geno
-            fused_preds = self._fuse_predict(covar_preds, geno_preds, geno_resid_preds, res_transformer=data.phenotype.residual_transformer)
+            fused_preds = self._fuse_predict(
+                covar_preds,
+                geno_preds,
+                geno_resid_preds,
+                res_transformer=data.phenotype.residual_transformer,
+            )
 
             if compute_shap:
                 shap_df = self.geno_model.compute_local_shap(data)
@@ -316,7 +341,7 @@ class GenomenModel:
 
     def compute_local_shap(self, data: DataSet) -> npt.NDArray:
         return self.geno_model.compute_local_shap(data)
-    
+
     def save(self, path: str) -> None:
         with open(path, "wb") as f:
             pickle.dump(self, f)
