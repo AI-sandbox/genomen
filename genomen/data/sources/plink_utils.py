@@ -111,7 +111,9 @@ def load_bim_data(
         pd.DataFrame: A DataFrame containing the data from the .bim file.
     """
     bim_column_names = ["chrom", "snp", "cm", "pos", "a0", "a1"]
-    bim_df = pd.read_csv(path, sep="\t", names=bim_column_names, low_memory=False)
+    bim_df = pd.read_csv(
+        path, sep="\t", names=bim_column_names, low_memory=False, dtype={"chrom": str}
+    )
 
     valid_chromosomes = [str(i) for i in range(1, 23)]
     if include_x_chromosome:
