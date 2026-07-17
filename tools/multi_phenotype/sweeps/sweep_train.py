@@ -49,18 +49,16 @@ def update_config_with_wandb_params(wandb_config, task_id):
 
     # --- GenomenModelConfig ---
     genomen_model_config = config[1]["GenomenModelConfig"]
-    genomen_model_config["covar_config"]["model_config"]["model_name"] = (
-        wandb_config.covar_model_name
-    )
-    genomen_model_config["geno_config"]["model_config"]["model_name"] = (
-        wandb_config.geno_model_name
-    )
+    genomen_model_config["covar_config"]["model_config"][
+        "model_name"
+    ] = wandb_config.covar_model_name
+    genomen_model_config["geno_config"]["model_config"]["model_name"] = wandb_config.geno_model_name
 
     if wandb_config.geno_model_name == "ensemble":
         ensemble_estimator_names = wandb_config.ensemble_estimator_names
-        genomen_model_config["geno_config"]["model_config"]["ensemble_estimator_names"] = (
-            ensemble_estimator_names
-        )
+        genomen_model_config["geno_config"]["model_config"][
+            "ensemble_estimator_names"
+        ] = ensemble_estimator_names
         geno_model_hyperparams = {
             model_name: wandb_config.geno_model_hyperparameters.get(model_name, {})
             for model_name in ensemble_estimator_names
