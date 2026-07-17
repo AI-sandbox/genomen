@@ -38,15 +38,40 @@ pip install genomen[dev]
 pip install genomen[gpu]
 ```
 
+GenomEn also requires [PLINK](https://www.cog-genomics.org/plink/) for some genotype computations. A Linux x86-64 binary is bundled at [assets/plink](assets/plink) and used automatically; if it doesn't work on your platform, install PLINK yourself and replace that file with your own executable.
+
+A clean `pip install genomen` takes about 90 seconds on average (measured across 10 installs in a fresh virtual environment). It's mostly download-bound (lightgbm, xgboost, catboost, shap, pandas, etc.), so it'll be quicker on a faster network connection, and installing via [uv](https://docs.astral.sh/uv/) (`uv pip install genomen`) cut this to ~16 seconds in our testing.
+
 ## Quick Start
 
+The repo ships a small, fully-synthetic demo dataset (see [data/demo/](data/demo/)) so you can try GenomEn right away, without your own genotype data.
+
+Point `.env` at the demo files:
+
+```bash
+cp .env.template .env
+```
+
+```bash
+# in .env
+FAM_PATH="data/demo/demo.fam"
+BED_PATH="data/demo/demo.bed"
+BIM_PATH="data/demo/demo.bim"
+MASTER_PATH="data/demo/demo_master.phe"
+```
+
+Then train and predict using the demo dataset's matching config ([docs/configs/demo.yml](docs/configs/demo.yml)):
+
 ```python
+import genomen.utils as utils
 from genomen.data import DataSet, split
 from genomen.model import GenomenModel
 
+utils.set_config_path("docs/configs/demo.yml")
+
 # Load and split data
 dataset = DataSet()
-train_set, test_set, val_set = split(dataset)
+train_set, test_set, val_set = split(dataset, split_by_col=("split", ("train", "test", "val")))
 
 # Train model
 model = GenomenModel()
@@ -54,6 +79,22 @@ model.fit(train_set, val_set)
 
 # Make predictions
 geno_preds, covar_preds, preds = model.predict(test_set)
+```
+
+Or equivalently, run the training script directly from the command line:
+
+```bash
+python docs/scripts/train.py --cfg_path=docs/configs/demo.yml
+```
+
+To use your own data, follow the [getting started guide](docs/notebooks/getting_started.md) and point `.env` / `config.yml` at your own PLINK files instead.
+
+### Simulating a trait
+
+To test GenomEn against a phenotype with known genetic/covariate architecture (instead of a real or demo trait), use [docs/scripts/simulate.py](docs/scripts/simulate.py). It simulates a binary or continuous phenotype from your genotype data with configurable heritability, trains a model, and reports test-set performance:
+
+```bash
+python docs/scripts/simulate.py --cfg_path=docs/configs/demo_sim.yml --task=cls  # or --task=reg for a continuous trait
 ```
 
 ## Documentation

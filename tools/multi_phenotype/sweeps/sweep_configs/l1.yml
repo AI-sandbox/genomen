@@ -1,0 +1,64 @@
+program: tools/multi_phenotype/sweeps/sweep_train.py
+name: genomen_l1_sweep
+method: random
+metric:
+  name: val_pred_metric
+  goal: maximize
+
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - "--task_id=${envvar:TASK_ID}"
+  - "--model_type=${envvar:MODEL_TYPE}"
+
+parameters:
+  variant_sampling_strategy:
+    values: ["random"]
+
+  sample_sampling_strategy:
+    values: ["balanced"]
+
+  max_samples:
+    values: [null]
+
+  max_features:
+    values: [80_000]
+
+  k_fs:
+    values: [10_000, 15_000]
+
+  # model params
+  covar_model_name:
+    value: "linear"
+
+  geno_model_name:
+    value: "linear_l1"
+
+  backend:
+    value: "cpu"
+
+  geno_model_hyperparameters:
+    parameters:
+      linear_l1:
+        parameters:
+          alpha:
+            distribution: log_uniform_values
+            min: 0.0001
+            max: 10.0
+
+  feature_selection_method:
+    values: ["k_best"]
+
+  filter_strat:
+    values: ["none", "top-p-percentile"]
+
+  agg_strat:
+    value: "mean"
+
+  p:
+    values: [0.25, 0.5, 0.75, 0.9]
+
+  k_balance:
+    values: [2, 3, 5]
