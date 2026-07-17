@@ -17,22 +17,6 @@ DataSetConfig:
   variant_sampling:
     strat: null # will be set during runtime
     max_features: null # will be set during runtime
-    ld_config:
-      prune_kb: 250
-      prune_step: 50
-      prune_r2: 0.1
-      tau: 0.1
-      ld_window_kb: 1_000
-      ld_window: 50_000
-      eps: 0.0
-      eps_schedule: "constant"
-      eps_step_size: 0.0
-      temp: 1.0
-    gwas_config:
-      path: ""
-      snps_column: "SNPS"
-      pvalue_column: "P-VALUE"
-    window_overlap_ratio: 0.5
 ---
 GenomenModelConfig:
   covar_config:
@@ -59,11 +43,6 @@ GenomenModelConfig:
     aggregator_config:
       filter_strat: null # will be set during runtime
       agg_strat: null # will be set during runtime
-      use_summary_stats: true
-      model_config: 
-        model_name: null # will be set during runtime
-        hyperparameters: {}
-        balance_classes: true
       p: null # will be set during runtime
       temp: 0.05
 ---

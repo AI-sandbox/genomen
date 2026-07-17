@@ -1,0 +1,92 @@
+program: tools/multi_phenotype/sweeps/sweep_train.py
+name: genomen_xgb_sweep
+method: random
+metric:
+  name: val_pred_metric
+  goal: maximize
+
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - "--task_id=${envvar:TASK_ID}"
+  - "--model_type=${envvar:MODEL_TYPE}"
+
+parameters:
+  variant_sampling_strategy:
+    values: ["random"]
+
+  sample_sampling_strategy:
+    values: ["balanced"]
+
+  max_samples:
+    values: [null]
+
+  max_features:
+    values: [80_000]
+
+  k_fs:
+    values: [10_000, 15_000]
+
+  # model params
+  covar_model_name:
+    value: "linear"
+
+  geno_model_name:
+    value: "xgboost"
+
+  backend:
+    value: "cpu"
+
+  geno_model_hyperparameters:
+    parameters:
+      xgboost:
+        parameters:
+          n_estimators:
+            distribution: int_uniform
+            min: 1000
+            max: 2000
+          max_depth:
+            distribution: int_uniform
+            min: 6
+            max: 12
+          learning_rate:
+            distribution: log_uniform_values
+            min: 0.01
+            max: 0.3
+          subsample:
+            distribution: uniform
+            min: 0.6
+            max: 0.95
+          colsample_bytree:
+            distribution: uniform
+            min: 0.6
+            max: 0.95
+          reg_alpha:
+            distribution: log_uniform_values
+            min: 0.001
+            max: 10.0
+          reg_lambda:
+            distribution: log_uniform_values
+            min: 0.001
+            max: 10.0
+          tree_method:
+            value: "hist"
+          booster:
+            values: ["gbtree"]
+
+  feature_selection_method:
+    values: ["k_best"]
+
+  filter_strat:
+    values: ["none", "top-p-percentile"]
+
+  agg_strat:
+    value: "mean"
+
+  p:
+    values: [0.25, 0.5, 0.75, 0.9]
+
+  k_balance:
+    values: [2, 3, 5]

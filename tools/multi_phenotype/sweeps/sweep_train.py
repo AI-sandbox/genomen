@@ -9,7 +9,7 @@ import yaml
 import genomen.utils as utils
 from genomen.data import DataSet, split
 from genomen.model import GenomenModel
-from genomen.tools.multi_phenotype.phenotype_config import PHENOTYPES
+from tools.multi_phenotype.phenotype_config import PHENOTYPES
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,24 +17,17 @@ logger.setLevel("INFO")
 
 
 def update_config_with_wandb_params(wandb_config, task_id):
-    """Update the config file with wandb parameters."""
-    base_config_path = "genomen/tools/multi_phenotype/sweeps/sweeps.yml"
+    """Update the base sweep config with wandb-sampled hyperparameters."""
+    base_config_path = "tools/multi_phenotype/sweeps/sweeps.yml"
     with open(base_config_path, "r") as f:
-        config = yaml.safe_load_all(f)
-        config = list(config)
+        config = list(yaml.safe_load_all(f))
 
     phenotype_name = config[3]["BenchmarkConfig"]["phenotypes"][
         task_id - 1
     ]  # Convert to 0-based index
     phenotype = PHENOTYPES[phenotype_name]
 
-    # Update DataSetConfig
-    max_features = (
-        wandb_config.max_features
-        if wandb_config.feature_selection_method == "k_best"
-        else wandb_config.max_features
-    )
-
+    # --- DataSetConfig ---
     data_set_config = config[0]["DataSetConfig"]
     data_set_config.update(
         {
@@ -49,35 +42,29 @@ def update_config_with_wandb_params(wandb_config, task_id):
             "k": wandb_config.k_balance,
         }
     )
-    data_set_config["variant_sampling"].update(
-        {"strat": wandb_config.variant_sampling_strategy, "max_features": max_features}
-    )
-    data_set_config["variant_sampling"]["ld_config"].update(
-        {
-            "eps": wandb_config.eps,
-            "eps_schedule": wandb_config.eps_schedule,
-        }
-    )
+    data_set_config["variant_sampling"] = {
+        "strat": wandb_config.variant_sampling_strategy,
+        "max_features": wandb_config.max_features,
+    }
 
-    # Update GenomenModelConfig
+    # --- GenomenModelConfig ---
     genomen_model_config = config[1]["GenomenModelConfig"]
-    genomen_model_config["covar_config"]["model_config"][
-        "model_name"
-    ] = wandb_config.covar_model_name
-    genomen_model_config["geno_config"]["model_config"]["model_name"] = wandb_config.geno_model_name
-    if "ensemble_estimator_names" in wandb_config:
-        genomen_model_config["geno_config"]["model_config"][
-            "ensemble_estimator_names"
-        ] = wandb_config.ensemble_estimator_names
+    genomen_model_config["covar_config"]["model_config"]["model_name"] = (
+        wandb_config.covar_model_name
+    )
+    genomen_model_config["geno_config"]["model_config"]["model_name"] = (
+        wandb_config.geno_model_name
+    )
 
     if wandb_config.geno_model_name == "ensemble":
-        geno_model_hyperparams = {}
-
-        # Process hyperparameters for each model in the ensemble
-        for model_name in wandb_config.ensemble_estimator_names:
-            geno_model_hyperparams[model_name] = wandb_config.geno_model_hyperparameters.get(
-                model_name, {}
-            )
+        ensemble_estimator_names = wandb_config.ensemble_estimator_names
+        genomen_model_config["geno_config"]["model_config"]["ensemble_estimator_names"] = (
+            ensemble_estimator_names
+        )
+        geno_model_hyperparams = {
+            model_name: wandb_config.geno_model_hyperparameters.get(model_name, {})
+            for model_name in ensemble_estimator_names
+        }
     else:
         # For single models
         geno_model_hyperparams = wandb_config.geno_model_hyperparameters.get(
@@ -85,31 +72,11 @@ def update_config_with_wandb_params(wandb_config, task_id):
         )
     genomen_model_config["geno_config"]["model_config"]["hyperparameters"] = geno_model_hyperparams
 
-    genomen_model_config["geno_config"]["aggregator_config"].update(
-        {
-            "agg_strat": wandb_config.agg_mode,
-            "use_summary_stats": wandb_config.include_ss,
-            "filter_strat": wandb_config.filter_strat,
-            "p": wandb_config.p,
-        }
-    )
-    genomen_model_config["geno_config"]["aggregator_config"]["model_config"][
-        "model_name"
-    ] = wandb_config.aggregation_model_name
-
-    # Add aggregator hyperparameters if available
-    aggregator_hyperparams = {}
-    if hasattr(wandb_config, "aggregation_model_hyperparameters") and hasattr(
-        wandb_config.aggregation_model_hyperparameters,
-        wandb_config.aggregation_model_name,
-    ):
-        aggregator_hyperparams = getattr(
-            wandb_config.aggregation_model_hyperparameters,
-            wandb_config.aggregation_model_name,
-        )
-        genomen_model_config["geno_config"]["aggregator_config"]["model_config"][
-            "hyperparameters"
-        ] = aggregator_hyperparams
+    genomen_model_config["geno_config"]["aggregator_config"] = {
+        "filter_strat": wandb_config.filter_strat,
+        "agg_strat": wandb_config.agg_strat,
+        "p": wandb_config.p,
+    }
 
     use_resid = (
         data_set_config["covar_config"]["include_covars"]
@@ -125,12 +92,12 @@ def update_config_with_wandb_params(wandb_config, task_id):
         }
     )
 
-    # Update TrainConfig
+    # --- TrainConfig ---
     train_config = config[2]["TrainConfig"]
     train_config.update(
         {
             "scorer": "rocauc" if phenotype["classification"] else "r2",
-            "backend": wandb_config.backend if hasattr(wandb_config, "backend") else "cpu",
+            "backend": getattr(wandb_config, "backend", "cpu"),
         }
     )
 
@@ -195,47 +162,47 @@ def train(task_id: int | None, model_type: str, project_name: str = "MetaPRS", *
     # Train model
     model.fit(train_set, val_set)
 
-    # Evaluate and log results
-    logger.info("Evaluating model...")
-    geno_preds, covar_preds, preds = model.predict(test_set)
+    classification = test_set.cfg.classification
+    include_covars = train_set.cfg.covar_config.include_covars
 
-    # Score genotype-only predictions
-    geno_score = utils.score(
-        test_set.get_labels(),
-        geno_preds,
-        model.train_cfg.scorer,
-        test_set.cfg.classification,
-    )
+    def score_split(name: str, data_set) -> float:
+        """Score genotype-only, covar-only, and combined predictions on a split.
 
-    # Log to wandb
-    run.log({"test_geno_score": geno_score})
-    logger.info(f"Geno-only score on test set: {geno_score}")
+        Returns the primary prediction metric for that split (combined score if
+        covariates are included, geno-only score otherwise).
+        """
+        geno_preds, covar_preds, preds = model.predict(data_set)
 
-    # Score combined predictions if covariates are included
-    if train_set.cfg.covar_config.include_covars:
-        covar_score = utils.score(
-            test_set.get_labels(),
-            covar_preds,
-            model.train_cfg.scorer,
-            test_set.cfg.classification,
+        geno_score = utils.score(
+            data_set.get_labels(), geno_preds, model.train_cfg.scorer, classification
         )
-        run.log({"test_covar_score": covar_score})
-        logger.info(f"Covar score on test set: {covar_score}")
+        run.log({f"{name}_geno_score": geno_score})
+        logger.info(f"Geno-only score on {name} set: {geno_score}")
 
-        combined_score = utils.score(
-            test_set.get_labels(),
-            preds,
-            model.train_cfg.scorer,
-            test_set.cfg.classification,
-        )
-        run.log({"test_combined_score": combined_score})
-        logger.info(f"Combined score on test set: {combined_score}")
+        if include_covars:
+            covar_score = utils.score(
+                data_set.get_labels(), covar_preds, model.train_cfg.scorer, classification
+            )
+            combined_score = utils.score(
+                data_set.get_labels(), preds, model.train_cfg.scorer, classification
+            )
+            run.log({f"{name}_covar_score": covar_score, f"{name}_combined_score": combined_score})
+            logger.info(f"Covar score on {name} set: {covar_score}")
+            logger.info(f"Combined score on {name} set: {combined_score}")
+            pred_metric = combined_score
+        else:
+            pred_metric = geno_score
 
-        # Use combined score as primary metric for sweeps
-        run.log({"test_pred_metric": combined_score})
-    else:
-        # Use geno score as primary metric if no covariates
-        run.log({"test_pred_metric": geno_score})
+        run.log({f"{name}_pred_metric": pred_metric})
+        return pred_metric
+
+    # The sweep's objective (val_pred_metric) is computed on the validation split, never on
+    # test -- test scores are logged purely for held-out reporting and must not feed the search.
+    logger.info("Evaluating model on validation set...")
+    score_split("val", val_set)
+
+    logger.info("Evaluating model on test set...")
+    score_split("test", test_set)
 
     # Cleanup
     os.remove(config_path)
