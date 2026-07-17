@@ -89,6 +89,14 @@ python docs/scripts/train.py --cfg_path=docs/configs/demo.yml
 
 To use your own data, follow the [getting started guide](docs/notebooks/getting_started.md) and point `.env` / `config.yml` at your own PLINK files instead.
 
+### Simulating a trait
+
+To test GenomEn against a phenotype with known genetic/covariate architecture (instead of a real or demo trait), use [docs/scripts/simulate.py](docs/scripts/simulate.py). It simulates a binary or continuous phenotype from your genotype data with configurable heritability, trains a model, and reports test-set performance:
+
+```bash
+python docs/scripts/simulate.py --cfg_path=docs/configs/demo_sim.yml --task=cls  # or --task=reg for a continuous trait
+```
+
 ## Documentation
 
 For detailed documentation, tutorials, and examples, please visit the [official documentation site](https://genomen-website.vercel.app/docs) or browse the local documentation in the [docs/](docs/) directory.

@@ -1,0 +1,66 @@
+---
+DataSetConfig:
+  phenotype_id: "SIM_CONT"          # does not need to exist in master file since simulate=true
+  simulate: true
+  classification: false
+  file_format: "plink"              # only supports plink for now
+  populations: ["white_british"]
+  include_x_chromosome: false
+  maf_threshold: 0.05
+  missingness_threshold: 0.05
+  sex: null
+  covar_config:
+    include_covars: true
+    covar_keys: ["age", "sex", "Global_PC1", "Global_PC2", "Global_PC3", "Global_PC4", "Global_PC5", "Global_PC6", "Global_PC7", "Global_PC8", "Global_PC9", "Global_PC10"]
+  sample_sampling:
+    strat: "random"                   # options: "random", "stratify", "balanced" ("stratify"/"balanced" only apply to classification)
+    max_samples: null
+    k: 3
+    balance_pops: false
+  variant_sampling:
+    strat: "random"
+    max_features: 10000
+---
+GenomenModelConfig:
+  covar_config:
+    covar_strat: "residualization"  # options: "residualization", "predictive"
+    model_config:
+      model_name: linear
+      hyperparameters: {}
+      balance_classes: false
+  geno_config:
+    n_estimators: 8
+    compute_interactions: true
+    preprocessing_config:
+      z_score_thresh: 0.0
+      standard_labels: false
+      feature_selection:
+        method: "none"              # options: "none", "k_best", "percentile", "variance_threshold", "mutual_info", "rfe"
+        k: 15_000
+        percentile: 0.75
+        variance_threshold: 0.05
+        score_func: null
+    model_config:
+      model_name: lightgbm
+      ensemble_estimator_names: []
+      hyperparameters: {}
+      balance_classes: false
+    aggregator_config:
+      filter_strat: "top-p-percentile"  # "none", "positive", "geq-average", "top-p-percentile"
+      agg_strat: "mean"                 # "mean", "rank-mean", "loss-weighted-average"
+      p: 0.75
+      pos_thresh: null                  # auto-derived to 0.0 for regression (see GenomenModelConfig.__post_init__)
+      temp: 0.05
+---
+TrainConfig:
+  batch_size: 1
+  n_jobs: 28
+  backend: "cpu"                  # options: "cpu", "gpu"
+  ram_mb: 100000
+  scorer: "r2"                    # options: "r2", "rocauc", "pearson_corr"
+  patience: 0
+  seed: 42
+  log_with_wandb: false
+  save_annotation: false
+  save_model: false
+  compute_shap: false

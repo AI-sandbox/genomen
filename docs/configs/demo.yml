@@ -1,0 +1,64 @@
+---
+DataSetConfig:
+  phenotype_id: "PHENO1"
+  classification: true
+  file_format: "plink"
+  populations: ["demo"]
+  include_x_chromosome: false
+  maf_threshold: 0.01
+  missingness_threshold: 0.05
+  sex: null
+  covar_config:
+    include_covars: true
+    covar_keys: ["age", "sex", "Global_PC1", "Global_PC2", "Global_PC3", "Global_PC4", "Global_PC5", "Global_PC6", "Global_PC7", "Global_PC8", "Global_PC9", "Global_PC10"]
+  sample_sampling:
+    strat: "balanced"                 # options: "random", "stratify", "balanced"
+    max_samples: null
+    k: 3
+    balance_pops: false
+  variant_sampling:
+    strat: "random"
+    max_features: 2000
+---
+GenomenModelConfig:
+  covar_config:
+    covar_strat: "residualization"  # options: "residualization", "predictive"
+    model_config:
+      model_name: linear
+      hyperparameters: {}
+      balance_classes: false
+  geno_config:
+    n_estimators: 4
+    compute_interactions: false
+    preprocessing_config:
+      z_score_thresh: 0.0
+      standard_labels: false
+      feature_selection:
+        method: "none"
+        k: 1000
+        percentile: 0.75
+        variance_threshold: 0.05
+        score_func: null
+    model_config:
+      model_name: lightgbm
+      ensemble_estimator_names: []
+      hyperparameters: {}
+      balance_classes: true
+    aggregator_config:
+      filter_strat: "geq-average"   # "none", "positive", "geq-average", "top-p-percentile"
+      agg_strat: "mean"             # "mean", "rank-mean", "loss-weighted-average"
+      p: 0.75
+      temp: 0.05
+---
+TrainConfig:
+  batch_size: 2
+  n_jobs: 4
+  backend: "cpu"                  # options: "cpu", "gpu"
+  ram_mb: 4000
+  scorer: "rocauc"                # options: "r2", "rocauc", "pearson_corr"
+  patience: 0
+  seed: 42
+  log_with_wandb: false
+  save_annotation: false
+  save_model: false
+  compute_shap: false
